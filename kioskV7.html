@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial;
+  margin: 0;
+  text-align: center;
+}
+
+.screen {
+  height: 100vh;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+button {
+  font-size: 18px;
+  margin: 6px;
+  padding: 6px 10px;
+  min-width: 60px;
+}
+
+input {
+  font-size: 22px;
+  padding: 10px;
+  width: 250px;
+  text-align: center;
+}
+
+#positionsGrid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#supplyLines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#supplies {
+  padding-bottom: 200px;
+}
+
+#status {
+  color: red;
+  margin-top: 10px;
+}
+
+#timer {
+  position: fixed;
+  bottom: 5px;
+  right: 10px;
+  font-size: 14px;
+  color: gray;
+}
+
+/* Spinner */
+.spinner {
+  border: 6px solid #eee;
+  border-top: 6px solid #333;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOADING -->
+<div id="loading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
+  <div style="font-size:22px; margin-bottom:15px;">Please wait...</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- HOME -->
+<div id="home" class="screen" style="display:flex;">
+  <img src="Logo.jpeg" style="max-width:150px; margin-bottom:20px;">
+  <h1>Fowler Range</h1>
+  <button onclick="startCheckIn()">Check In</button>
+  <button onclick="startCheckOut()">Check Out</button>
+</div>
+
+<!-- MEMBER -->
+<div id="member" class="screen">
+  <img src="Logo.jpeg" style="max-width:150px;">
+  <h2>Enter Member ID</h2>
+  <input id="memberInput" inputmode="numeric">
+  <button onclick="goPositions()">Next</button>
+</div>
+
+<!-- POSITIONS -->
+<div id="positions" class="screen">
+  <img src="Logo.jpeg" style="max-width:150px;">
+  <h2>Select Positions</h2>
+  <p>Select all that apply</p>
+  <div id="positionsGrid"></div>
+  <button onclick="goSupplies()">Next</button>
+</div>
+
+<!-- SUPPLIES -->
+<div id="supplies" class="screen">
+  <img src="Logo.jpeg" style="max-width:150px;">
+  <h2>Ammo / Caliber</h2>
+  <p>Enter calibers you plan to use</p>
+  <div id="supplyLines"></div>
+  <button onclick="submitCheckIn()">Submit</button>
+</div>
+
+<!-- CHECKOUT -->
+<div id="checkout" class="screen">
+  <img src="Logo.jpeg" style="max-width:150px;">
+  <h2>Check Out</h2>
+  <div id="activeUsers"></div>
+</div>
+
+<div id="status"></div>
+<div id="timer"></div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbwgFAkG1DVFFrEL42wLQf-5rIvzKE9r1aQZMerOgROfXkbOQRkIflpL7KpiHpkJ1Ihm/exec";
+
+let membersList = [];
+let activeUsers = [];
+let memberId = "";
+let selectedPositions = [];
+let submitting = false;
+
+// INIT
+window.onload = function(){
+  buildPositions();
+  loadMembers();
+  resetTimer();
+};
+
+// LOADING
+function showLoading(){ document.getElementById("loading").style.display = "flex"; }
+function hideLoading(){ document.getElementById("loading").style.display = "none"; }
+
+// UI
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s => s.style.display = "none");
+  document.getElementById(id).style.display = "flex";
+
+  setTimeout(()=>{
+    let input = document.querySelector("#"+id+" input");
+    if(input) input.focus();
+  },300);
+}
+
+// STATUS
+function setStatus(msg){
+  document.getElementById("status").innerText = msg;
+}
+
+// MEMBERS
+function loadMembers(){
+  fetch(API + "?action=members")
+  .then(r=>r.json())
+  .then(d=> membersList = d.map(x=>String(x)));
+}
+
+// ACTIVE USERS
+function loadActiveUsers(){
+  return fetch(API + "?action=active")
+  .then(r=>r.json())
+  .then(d=> activeUsers = d.map(x=>String(x)));
+}
+
+// POSITIONS
+function buildPositions(){
+  const grid = document.getElementById("positionsGrid");
+  grid.innerHTML="";
+
+  function makeRow(title, nums){
+    let section = document.createElement("div");
+    let h = document.createElement("h3");
+    h.innerText = title;
+
+    let row = document.createElement("div");
+
+    nums.forEach(n=>{
+      let b = document.createElement("button");
+      b.innerText=n;
+      b.onclick=()=>{
+        if(selectedPositions.includes(n)){
+          selectedPositions=selectedPositions.filter(x=>x!==n);
+          b.style.background="";
+          b.style.color="";
+        }else{
+          selectedPositions.push(n);
+          b.style.background="#4CAF50";
+          b.style.color="white";
+        }
+      };
+      row.appendChild(b);
+    });
+
+    section.appendChild(h);
+    section.appendChild(row);
+    grid.appendChild(section);
+  }
+
+  makeRow("25 Yards",[1,2,3,4,5,6,7,8,9]);
+  makeRow("50 Yards",[10,11,12,13,14,15,16,17]);
+  makeRow("100 Yards",[35,36,37,38,39,40,41,42]);
+}
+
+// SUPPLIES
+function buildSupplies(){
+  const c = document.getElementById("supplyLines");
+  c.innerHTML="";
+
+  for(let i=0;i<10;i++){
+    let input=document.createElement("input");
+    input.placeholder="Caliber "+(i+1);
+    input.disabled = i!==0;
+
+    input.oninput=()=>{
+      let inputs=c.querySelectorAll("input");
+      for(let j=0;j<inputs.length;j++){
+        inputs[j].disabled = (j!==0 && inputs[j-1].value==="");
+      }
+    };
+
+    c.appendChild(input);
+  }
+}
+
+// FLOW
+function startCheckIn(){
+  memberId="";
+  selectedPositions=[];
+  showScreen("member");
+}
+
+async function goPositions(){
+  let val=document.getElementById("memberInput").value.trim();
+  if(!val){ setStatus("Enter Member ID"); return; }
+
+  memberId=String(val);
+
+  showLoading();
+
+  if(!membersList.includes(memberId)){
+    hideLoading();
+    if(!confirm("Member not found. Continue?")) return;
+    showLoading();
+  }
+
+  await loadActiveUsers();
+
+  if(activeUsers.includes(memberId)){
+    hideLoading();
+    if(confirm("Already checked in. Check out?")){
+      checkout(memberId);
+    } else {
+      showScreen("home");
+    }
+    return;
+  }
+
+  hideLoading();
+  showScreen("positions");
+}
+
+function goSupplies(){
+  showLoading();
+  setTimeout(()=>{
+    buildSupplies();
+    hideLoading();
+    showScreen("supplies");
+  },200);
+}
+
+// SUBMIT
+function submitCheckIn(){
+  if(submitting) return;
+  submitting=true;
+
+  showLoading();
+
+  let supplies=[];
+  document.querySelectorAll("#supplyLines input").forEach(i=>{
+    if(i.value) supplies.push(i.value);
+  });
+
+  fetch(API+"?action=submit&memberId="+memberId+"&positions="+selectedPositions.join(",")+"&supplies="+supplies.join(",")+"&type=IN")
+  .then(()=>{
+    hideLoading();
+    setStatus("Successfully Checked In");
+    setTimeout(()=>location.reload(),2000);
+  })
+  .catch(()=>{
+    submitting=false;
+    hideLoading();
+    setStatus("Error");
+  });
+}
+
+// CHECKOUT
+function startCheckOut(){
+  showLoading();
+
+  fetch(API+"?action=active")
+  .then(r=>r.json())
+  .then(list=>{
+    hideLoading();
+
+    let div=document.getElementById("activeUsers");
+    div.innerHTML="";
+
+    if(list.length===0){
+      div.innerHTML="<p>No active users</p>";
+      showScreen("checkout");
+      setTimeout(()=>location.reload(),3000);
+      return;
+    }
+
+    list.forEach(id=>{
+      let b=document.createElement("button");
+      b.innerText=id;
+      b.onclick=()=>checkout(id);
+      div.appendChild(b);
+    });
+
+    showScreen("checkout");
+  });
+}
+
+let checkingOut = false;
+
+function checkout(id){
+  if(checkingOut) return;   // 🚫 block double tap
+  checkingOut = true;
+
+  showLoading();
+
+  fetch(API+"?action=submit&memberId="+id+"&type=OUT")
+  .then(()=>{
+    hideLoading();
+    setStatus("Checked out");
+    setTimeout(()=>location.reload(),1500);
+  })
+  .catch(()=>{
+    checkingOut = false;   // allow retry if failed
+    hideLoading();
+    setStatus("Error");
+  });
+}
+
+// TIMER
+let idle=60;
+setInterval(()=>{
+  idle--;
+  document.getElementById("timer").innerText="Reset in "+idle+"s";
+  if(idle<=0) location.reload();
+},1000);
+
+function resetTimer(){ idle=60; }
+document.onclick=resetTimer;
+document.onmousemove=resetTimer;
+document.onkeypress=resetTimer;
+
+</script>
+</body>
+</html>

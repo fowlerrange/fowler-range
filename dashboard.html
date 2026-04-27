@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body { font-family: Arial; text-align: center; margin: 0; }
+
+.container { padding: 20px; }
+
+.card {
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 10px auto;
+  max-width: 400px;
+}
+
+.big { font-size: 36px; font-weight: bold; }
+
+button { margin: 5px; padding: 10px 15px; font-size: 16px; }
+
+#adminPanel {
+  display: none;
+  border-top: 2px solid #000;
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+.corner {
+  position: fixed;
+  width: 50px;
+  height: 50px;
+  z-index: 999;
+}
+
+#tl { top:0; left:0; }
+#tr { top:0; right:0; }
+#bl { bottom:0; left:0; }
+#br { bottom:0; right:0; }
+</style>
+</head>
+
+<body>
+
+<!-- Hidden tap zones -->
+<div id="tl" class="corner"></div>
+<div id="tr" class="corner"></div>
+<div id="bl" class="corner"></div>
+<div id="br" class="corner"></div>
+
+<div class="container">
+
+<h1>Fowler Range Dashboard</h1>
+
+<div>
+  <button onclick="loadData(1)">Today</button>
+  <button onclick="loadData(7)">7 Days</button>
+  <button onclick="loadData(30)">30 Days</button>
+  <button onclick="loadData(365)">Year</button>
+</div>
+
+<div class="card">
+  <div>Total Check-ins</div>
+  <div id="total" class="big">--</div>
+</div>
+
+<div class="card">
+  <div>Currently Active</div>
+  <div id="activeCount" class="big">--</div>
+  <div id="activeList"></div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel">
+  <h2>Admin Controls</h2>
+  <button onclick="refreshActive()">Refresh Active Users</button>
+  <div id="adminUsers"></div>
+  <button onclick="reloadSystem()">Reload System</button>
+</div>
+
+</div>
+
+<script>
+
+const API = "https://script.google.com/macros/s/AKfycbwgFAkG1DVFFrEL42wLQf-5rIvzKE9r1aQZMerOgROfXkbOQRkIflpL7KpiHpkJ1Ihm/exec";
+
+// ================== DASHBOARD ==================
+function loadData(days){
+  fetch(API + "?action=dashboard&days=" + days)
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById("total").innerText = data.total;
+    document.getElementById("activeCount").innerText = data.active.length;
+
+    let html = "";
+    data.active.forEach(id => html += "<div>"+id+"</div>");
+    document.getElementById("activeList").innerHTML = html || "<i>None</i>";
+  });
+}
+
+function refreshActive(){
+  fetch(API + "?action=active")
+  .then(r => r.json())
+  .then(list => {
+    let div = document.getElementById("adminUsers");
+    div.innerHTML = "";
+
+    list.forEach(id => {
+      let btn = document.createElement("button");
+      btn.innerText = "Force OUT: " + id;
+      btn.onclick = () => forceCheckout(id);
+      div.appendChild(btn);
+    });
+  });
+}
+
+function forceCheckout(id){
+  fetch(API + "?action=submit&memberId="+id+"&type=OUT")
+  .then(() => {
+    alert("Checked out " + id);
+    refreshActive();
+    loadData(1);
+  });
+}
+
+function reloadSystem(){
+  location.reload();
+}
+
+// ================== ADMIN UNLOCK ==================
+let taps = {tl:0,tr:0,bl:0,br:0};
+
+function tap(corner){
+  taps[corner]++;
+  checkUnlock();
+}
+
+function checkUnlock(){
+  if(taps.tl>=2 && taps.tr>=2 && taps.bl>=2 && taps.br>=2){
+    let pin = prompt("Enter PIN");
+    if(pin === "4570"){
+      document.getElementById("adminPanel").style.display = "block";
+      refreshActive();
+    }
+    taps = {tl:0,tr:0,bl:0,br:0};
+  }
+}
+
+["tl","tr","bl","br"].forEach(id=>{
+  document.getElementById(id).onclick = ()=>tap(id);
+});
+
+// ================== INIT ==================
+loadData(1);
+setInterval(()=>loadData(1), 30000);
+
+</script>
+
+</body>
+</html>
