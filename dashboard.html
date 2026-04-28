@@ -66,7 +66,26 @@ canvas {
 }
 </style>
 </head>
+<div id="adminPanel" style="
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  z-index:9999;
+  padding:20px;
+">
 
+  <h2>Admin Panel</h2>
+
+  <button onclick="forceRefresh()">Force Refresh</button>
+  <button onclick="exportData()">Export Data</button>
+  <button onclick="closeAdmin()">Close</button>
+
+</div>
+  
 <body>
 
 <div class="container">
@@ -97,6 +116,37 @@ canvas {
 const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujgo6kM7DaJX9wQ5DwJFBaOJ2T2vyg993g0nJEP1jZt/exec";
 const KEY = "4570-SECURE-KEY";
 
+let taps = [];
+
+document.addEventListener("click", function(e){
+  const x = e.clientX;
+  const y = e.clientY;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  const margin = 120;
+
+  const corner =
+    (x < margin && y < margin) ||
+    (x > w - margin && y < margin) ||
+    (x < margin && y > h - margin) ||
+    (x > w - margin && y > h - margin);
+
+  if(!corner){
+    taps = [];
+    return;
+  }
+
+  taps.push(Date.now());
+
+  if(taps.length > 4) taps.shift();
+
+  if(taps.length === 4 && (taps[3] - taps[0]) < 2500){
+    unlockAdmin();
+    taps = [];
+  }
+});
+  
 async function loadDashboard(){
   try {
     let res = await fetch(API + "?key=" + KEY + "&action=dashboard&days=1");
@@ -125,7 +175,22 @@ async function loadDashboard(){
     console.error(e);
   }
 }
+function unlockAdmin(){
+  document.getElementById("adminPanel").style.display = "block";
+}
 
+function closeAdmin(){
+  document.getElementById("adminPanel").style.display = "none";
+}
+
+function forceRefresh(){
+  loadDashboard();
+}
+
+function exportData(){
+  window.open(API + "?key=" + KEY + "&action=logs");
+}
+  
 function drawChart(hours){
   const canvas = document.getElementById("chart");
   const ctx = canvas.getContext("2d");
