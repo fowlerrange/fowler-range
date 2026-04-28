@@ -129,7 +129,7 @@ input {
 <div id="timer"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwgFAkG1DVFFrEL42wLQf-5rIvzKE9r1aQZMerOgROfXkbOQRkIflpL7KpiHpkJ1Ihm/exec";
+const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujgo6kM7DaJX9wQ5DwJFBaOJ2T2vyg993g0nJEP1jZt/exec";
 
 let membersList = [];
 let activeUsers = [];
@@ -150,6 +150,7 @@ function hideLoading(){ document.getElementById("loading").style.display = "none
 
 // UI
 function showScreen(id){
+  setStatus("");
   document.querySelectorAll(".screen").forEach(s => s.style.display = "none");
   document.getElementById(id).style.display = "flex";
 
@@ -166,14 +167,14 @@ function setStatus(msg){
 
 // MEMBERS
 function loadMembers(){
-  fetch(API + "?action=members")
+  fetch(API + "?key=4570-SECURE-KEY&action=members")
   .then(r=>r.json())
   .then(d=> membersList = d.map(x=>String(x)));
 }
 
 // ACTIVE USERS
 function loadActiveUsers(){
-  return fetch(API + "?action=active")
+  return fetch(API + "?key=4570-SECURE-KEY&action=active")
   .then(r=>r.json())
   .then(d=> activeUsers = d.map(x=>String(x)));
 }
@@ -293,27 +294,38 @@ function submitCheckIn(){
 
   let supplies=[];
   document.querySelectorAll("#supplyLines input").forEach(i=>{
-    if(i.value) supplies.push(i.value);
+    if(i.value.trim()) supplies.push(i.value.trim());
   });
 
-  fetch(API+"?action=submit&memberId="+memberId+"&positions="+selectedPositions.join(",")+"&supplies="+supplies.join(",")+"&type=IN")
-  .then(()=>{
-    hideLoading();
-    setStatus("Successfully Checked In");
-    setTimeout(()=>location.reload(),2000);
-  })
-  .catch(()=>{
-    submitting=false;
-    hideLoading();
-    setStatus("Error");
-  });
-}
+fetch(API +
+  "?key=4570-SECURE-KEY" +
+  "&action=submit" +
+  "&memberId=" + encodeURIComponent(memberId) +
+  "&positions=" + encodeURIComponent(selectedPositions.join(",")) +
+  "&supplies=" + encodeURIComponent(supplies.join(",")) +
+  "&type=IN"
+)
+.then(r => r.json())
+.then(res => {
+  if(res.error){
+    throw new Error(res.error);
+  }
+
+  hideLoading();
+  setStatus("Successfully Checked In");
+  setTimeout(()=>location.reload(),2000);
+})
+.catch(err=>{
+  submitting=false;
+  hideLoading();
+  setStatus(err.message || "Error");
+});
 
 // CHECKOUT
 function startCheckOut(){
   showLoading();
 
-  fetch(API+"?action=active")
+  fetch(API+"?key=4570-SECURE-KEY&action=active")
   .then(r=>r.json())
   .then(list=>{
     hideLoading();
@@ -347,17 +359,28 @@ function checkout(id){
 
   showLoading();
 
-  fetch(API+"?action=submit&memberId="+id+"&type=OUT")
-  .then(()=>{
-    hideLoading();
-    setStatus("Checked out");
-    setTimeout(()=>location.reload(),1500);
-  })
-  .catch(()=>{
-    checkingOut = false;   // allow retry if failed
-    hideLoading();
-    setStatus("Error");
-  });
+  fetch(API +
+  "?key=4570-SECURE-KEY" +
+  "&action=submit" +
+  "&memberId=" + encodeURIComponent(id) +
+  "&type=OUT"
+)
+.then(r => r.json())
+.then(res => {
+  if(res.error){
+    throw new Error(res.error);
+  }
+
+  hideLoading();
+  setStatus("Checked out");
+  setTimeout(()=>location.reload(),1500);
+})
+.catch(err=>{
+  checkingOut = false;
+  hideLoading();
+  setStatus(err.message || "Error");
+});
+  
 }
 
 // TIMER
