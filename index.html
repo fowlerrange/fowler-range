@@ -297,25 +297,29 @@ function submitCheckIn(){
     if(i.value.trim()) supplies.push(i.value.trim());
   });
 
-  fetch(API +
+fetch(API +
   "?key=4570-SECURE-KEY" +
   "&action=submit" +
   "&memberId=" + encodeURIComponent(memberId) +
   "&positions=" + encodeURIComponent(selectedPositions.join(",")) +
   "&supplies=" + encodeURIComponent(supplies.join(",")) +
   "&type=IN"
-  )
-  .then(()=>{
-    hideLoading();
-    setStatus("Successfully Checked In");
-    setTimeout(()=>location.reload(),2000);
-  })
-  .catch(()=>{
-    submitting=false;
-    hideLoading();
-    setStatus("Error");
-  });
-}
+)
+.then(r => r.json())
+.then(res => {
+  if(res.error){
+    throw new Error(res.error);
+  }
+
+  hideLoading();
+  setStatus("Successfully Checked In");
+  setTimeout(()=>location.reload(),2000);
+})
+.catch(err=>{
+  submitting=false;
+  hideLoading();
+  setStatus(err.message || "Error");
+});
 
 // CHECKOUT
 function startCheckOut(){
@@ -360,17 +364,23 @@ function checkout(id){
   "&action=submit" +
   "&memberId=" + encodeURIComponent(id) +
   "&type=OUT"
- )
-  .then(()=>{
-    hideLoading();
-    setStatus("Checked out");
-    setTimeout(()=>location.reload(),1500);
-  })
-  .catch(()=>{
-    checkingOut = false;   // allow retry if failed
-    hideLoading();
-    setStatus("Error");
-  });
+)
+.then(r => r.json())
+.then(res => {
+  if(res.error){
+    throw new Error(res.error);
+  }
+
+  hideLoading();
+  setStatus("Checked out");
+  setTimeout(()=>location.reload(),1500);
+})
+.catch(err=>{
+  checkingOut = false;
+  hideLoading();
+  setStatus(err.message || "Error");
+});
+  
 }
 
 // TIMER
