@@ -83,7 +83,7 @@ button { margin: 5px; padding: 10px 15px; font-size: 16px; }
 
 <script>
 
-const API = "https://script.google.com/macros/s/AKfycbwgFAkG1DVFFrEL42wLQf-5rIvzKE9r1aQZMerOgROfXkbOQRkIflpL7KpiHpkJ1Ihm/exec";
+const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujgo6kM7DaJX9wQ5DwJFBaOJ2T2vyg993g0nJEP1jZt/exec";
 
 // ================== DASHBOARD ==================
 function loadData(days){
@@ -100,7 +100,7 @@ function loadData(days){
 }
 
 function refreshActive(){
-  fetch(API + "?action=active")
+  fetch(API + "?key=4570-SECURE-KEY&action=active")
   .then(r => r.json())
   .then(list => {
     let div = document.getElementById("adminUsers");
@@ -116,7 +116,7 @@ function refreshActive(){
 }
 
 function forceCheckout(id){
-  fetch(API + "?action=submit&memberId="+id+"&type=OUT")
+  fetch(API + "?key=4570-SECURE-KEY&action=submit&memberId="+id+"&type=OUT")
   .then(() => {
     alert("Checked out " + id);
     refreshActive();
