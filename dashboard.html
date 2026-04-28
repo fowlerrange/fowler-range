@@ -4,157 +4,150 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body { font-family: Arial; text-align: center; margin: 0; }
+body {
+  font-family: Arial;
+  margin: 0;
+  background: #111;
+  color: white;
+  text-align: center;
+}
 
-.container { padding: 20px; }
+.container {
+  padding: 20px;
+}
+
+.cards {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 30px;
+}
 
 .card {
-  border: 1px solid #ccc;
+  background: #222;
+  padding: 20px 40px;
   border-radius: 10px;
-  padding: 20px;
-  margin: 10px auto;
-  max-width: 400px;
 }
 
-.big { font-size: 36px; font-weight: bold; }
+.big {
+  font-size: 48px;
+  font-weight: bold;
+}
 
-button { margin: 5px; padding: 10px 15px; font-size: 16px; }
+.label {
+  font-size: 16px;
+  color: #aaa;
+}
 
-#adminPanel {
-  display: none;
-  border-top: 2px solid #000;
+#users {
   margin-top: 20px;
-  padding-top: 20px;
+  font-size: 22px;
 }
 
-.corner {
+.user {
+  display: inline-block;
+  background: #333;
+  padding: 10px 15px;
+  margin: 5px;
+  border-radius: 6px;
+}
+
+canvas {
+  margin-top: 30px;
+  max-width: 90%;
+}
+
+#refresh {
   position: fixed;
-  width: 50px;
-  height: 50px;
-  z-index: 999;
+  bottom: 10px;
+  right: 15px;
+  font-size: 12px;
+  color: #777;
 }
-
-#tl { top:0; left:0; }
-#tr { top:0; right:0; }
-#bl { bottom:0; left:0; }
-#br { bottom:0; right:0; }
 </style>
 </head>
 
 <body>
 
-<!-- Hidden tap zones -->
-<div id="tl" class="corner"></div>
-<div id="tr" class="corner"></div>
-<div id="bl" class="corner"></div>
-<div id="br" class="corner"></div>
-
 <div class="container">
 
-<h1>Fowler Range Dashboard</h1>
+  <h1>Range Dashboard</h1>
 
-<div>
-  <button onclick="loadData(1)">Today</button>
-  <button onclick="loadData(7)">7 Days</button>
-  <button onclick="loadData(30)">30 Days</button>
-  <button onclick="loadData(365)">Year</button>
-</div>
+  <div class="cards">
+    <div class="card">
+      <div id="total" class="big">0</div>
+      <div class="label">Check-ins (Today)</div>
+    </div>
 
-<div class="card">
-  <div>Total Check-ins</div>
-  <div id="total" class="big">--</div>
-</div>
+    <div class="card">
+      <div id="activeCount" class="big">0</div>
+      <div class="label">Active Now</div>
+    </div>
+  </div>
 
-<div class="card">
-  <div>Currently Active</div>
-  <div id="activeCount" class="big">--</div>
-  <div id="activeList"></div>
-</div>
+  <div id="users"></div>
 
-<!-- ADMIN PANEL -->
-<div id="adminPanel">
-  <h2>Admin Controls</h2>
-  <button onclick="refreshActive()">Refresh Active Users</button>
-  <div id="adminUsers"></div>
-  <button onclick="reloadSystem()">Reload System</button>
-</div>
+  <canvas id="chart" height="120"></canvas>
 
 </div>
+
+<div id="refresh"></div>
 
 <script>
-
 const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujgo6kM7DaJX9wQ5DwJFBaOJ2T2vyg993g0nJEP1jZt/exec";
+const KEY = "4570-SECURE-KEY";
 
-// ================== DASHBOARD ==================
-function loadData(days){
-  fetch(API + "?key=4570-SECURE-KEY&action=dashboard&days=" + days)
-  .then(r => r.json())
-  .then(data => {
+async function loadDashboard(){
+  try {
+    let res = await fetch(API + "?key=" + KEY + "&action=dashboard&days=1");
+    let data = await res.json();
+
     document.getElementById("total").innerText = data.total;
     document.getElementById("activeCount").innerText = data.active.length;
 
-    let html = "";
-    data.active.forEach(id => html += "<div>"+id+"</div>");
-    document.getElementById("activeList").innerHTML = html || "<i>None</i>";
-  });
-}
+    // Active users
+    let usersDiv = document.getElementById("users");
+    usersDiv.innerHTML = "";
 
-function refreshActive(){
-  fetch(API + "?key=4570-SECURE-KEY&action=active")
-  .then(r => r.json())
-  .then(list => {
-    let div = document.getElementById("adminUsers");
-    div.innerHTML = "";
-
-    list.forEach(id => {
-      let btn = document.createElement("button");
-      btn.innerText = "Force OUT: " + id;
-      btn.onclick = () => forceCheckout(id);
-      div.appendChild(btn);
+    data.active.forEach(u => {
+      let div = document.createElement("div");
+      div.className = "user";
+      div.innerText = u;
+      usersDiv.appendChild(div);
     });
-  });
-}
 
-function forceCheckout(id){
-  fetch(API + "?key=4570-SECURE-KEY&action=submit&memberId="+id+"&type=OUT")
-  .then(() => {
-    alert("Checked out " + id);
-    refreshActive();
-    loadData(1);
-  });
-}
+    drawChart(data.hours);
 
-function reloadSystem(){
-  location.reload();
-}
+    document.getElementById("refresh").innerText =
+      "Last updated: " + new Date().toLocaleTimeString();
 
-// ================== ADMIN UNLOCK ==================
-let taps = {tl:0,tr:0,bl:0,br:0};
-
-function tap(corner){
-  taps[corner]++;
-  checkUnlock();
-}
-
-function checkUnlock(){
-  if(taps.tl>=2 && taps.tr>=2 && taps.bl>=2 && taps.br>=2){
-    let pin = prompt("Enter PIN");
-    if(pin === "4570"){
-      document.getElementById("adminPanel").style.display = "block";
-      refreshActive();
-    }
-    taps = {tl:0,tr:0,bl:0,br:0};
+  } catch (e){
+    console.error(e);
   }
 }
 
-["tl","tr","bl","br"].forEach(id=>{
-  document.getElementById(id).onclick = ()=>tap(id);
-});
+function drawChart(hours){
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
 
-// ================== INIT ==================
-loadData(1);
-setInterval(()=>loadData(1), 30000);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  let max = Math.max(...hours, 1);
+  let barWidth = canvas.width / 24;
+
+  for(let i=0;i<24;i++){
+    let h = hours[i];
+    let height = (h / max) * canvas.height;
+
+    ctx.fillStyle = "#4CAF50";
+    ctx.fillRect(i * barWidth, canvas.height - height, barWidth - 2, height);
+  }
+}
+
+// Auto refresh every 15 sec
+setInterval(loadDashboard, 15000);
+
+loadDashboard();
 </script>
 
 </body>
