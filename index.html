@@ -150,6 +150,7 @@ function hideLoading(){ document.getElementById("loading").style.display = "none
 
 // UI
 function showScreen(id){
+  setStatus("");
   document.querySelectorAll(".screen").forEach(s => s.style.display = "none");
   document.getElementById(id).style.display = "flex";
 
@@ -293,10 +294,17 @@ function submitCheckIn(){
 
   let supplies=[];
   document.querySelectorAll("#supplyLines input").forEach(i=>{
-    if(i.value) supplies.push(i.value);
+    if(i.value.trim()) supplies.push(i.value.trim());
   });
 
-  fetch(API+"?key=4570-SECURE-KEY&action=submit&memberId="+memberId+"&positions="+selectedPositions.join(",")+"&supplies="+supplies.join(",")+"&type=IN")
+  fetch(API +
+  "?key=4570-SECURE-KEY" +
+  "&action=submit" +
+  "&memberId=" + encodeURIComponent(memberId) +
+  "&positions=" + encodeURIComponent(selectedPositions.join(",")) +
+  "&supplies=" + encodeURIComponent(supplies.join(",")) +
+  "&type=IN"
+  )
   .then(()=>{
     hideLoading();
     setStatus("Successfully Checked In");
@@ -347,7 +355,12 @@ function checkout(id){
 
   showLoading();
 
-  fetch(API+"?key=4570-SECURE-KEY&action=submit&memberId="+id+"&type=OUT")
+  fetch(API +
+  "?key=4570-SECURE-KEY" +
+  "&action=submit" +
+  "&memberId=" + encodeURIComponent(id) +
+  "&type=OUT"
+ )
   .then(()=>{
     hideLoading();
     setStatus("Checked out");
