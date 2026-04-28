@@ -325,29 +325,29 @@ fetch(API +
 function startCheckOut(){
   showLoading();
 
-  fetch(API+"?key=4570-SECURE-KEY&action=active")
-  .then(r=>r.json())
-  .then(list=>{
+  fetch(API + "?key=4570-SECURE-KEY&action=active")
+  .then(r => r.json())
+  .then(list => {
     hideLoading();
 
-    let div=document.getElementById("activeUsers");
-    div.innerHTML="";
+    let div = document.getElementById("activeUsers");
+    div.innerHTML = "";
 
-    if(list.length===0){
-      div.innerHTML="<p>No active users</p>";
+    if(list.length === 0){
+      div.innerHTML = "<p>No active users</p>";
       showScreen("checkout");
       setTimeout(()=>location.reload(),3000);
       return;
     }
 
     list.forEach(id=>{
-      let b=document.createElement("button");
-      b.innerText=id;
-      b.onclick=()=>checkout(id);
+      let b = document.createElement("button");
+      b.innerText = id;
+      b.onclick = () => checkout(id);
       div.appendChild(b);
     });
-  }
-    showScreen("checkout");
+
+    showScreen("checkout"); // ✅ inside the .then
   });
 }
 
