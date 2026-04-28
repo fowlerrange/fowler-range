@@ -87,7 +87,7 @@ const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujg
 
 // ================== DASHBOARD ==================
 function loadData(days){
-  fetch(API + "?action=dashboard&days=" + days)
+  fetch(API + "?key=4570-SECURE-KEY&action=dashboard&days=" + days)
   .then(r => r.json())
   .then(data => {
     document.getElementById("total").innerText = data.total;
