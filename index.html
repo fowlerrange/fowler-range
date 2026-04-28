@@ -311,9 +311,14 @@ fetch(API +
     throw new Error(res.error);
   }
 
-  hideLoading();
   setStatus("Successfully Checked In");
-  setTimeout(()=>location.reload(),2000);
+
+  // keep loading screen visible
+  document.getElementById("loading").innerHTML = `
+    <div style="font-size:22px;">Successfully Checked In</div>
+  `;
+
+  setTimeout(()=>location.reload(), 2000);
 })
 .catch(err=>{
   submitting=false;
