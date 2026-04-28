@@ -129,7 +129,7 @@ input {
 <div id="timer"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwgFAkG1DVFFrEL42wLQf-5rIvzKE9r1aQZMerOgROfXkbOQRkIflpL7KpiHpkJ1Ihm/exec";
+const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujgo6kM7DaJX9wQ5DwJFBaOJ2T2vyg993g0nJEP1jZt/exec";
 
 let membersList = [];
 let activeUsers = [];
@@ -166,14 +166,14 @@ function setStatus(msg){
 
 // MEMBERS
 function loadMembers(){
-  fetch(API + "?action=members")
+  fetch(API + "?key=4570-SECURE-KEY&action=members")
   .then(r=>r.json())
   .then(d=> membersList = d.map(x=>String(x)));
 }
 
 // ACTIVE USERS
 function loadActiveUsers(){
-  return fetch(API + "?action=active")
+  return fetch(API + "?key=4570-SECURE-KEY&action=active")
   .then(r=>r.json())
   .then(d=> activeUsers = d.map(x=>String(x)));
 }
@@ -296,7 +296,7 @@ function submitCheckIn(){
     if(i.value) supplies.push(i.value);
   });
 
-  fetch(API+"?action=submit&memberId="+memberId+"&positions="+selectedPositions.join(",")+"&supplies="+supplies.join(",")+"&type=IN")
+  fetch(API+"?key=4570-SECURE-KEY&action=submit&memberId="+memberId+"&positions="+selectedPositions.join(",")+"&supplies="+supplies.join(",")+"&type=IN")
   .then(()=>{
     hideLoading();
     setStatus("Successfully Checked In");
@@ -313,7 +313,7 @@ function submitCheckIn(){
 function startCheckOut(){
   showLoading();
 
-  fetch(API+"?action=active")
+  fetch(API+"?key=4570-SECURE-KEY&action=active")
   .then(r=>r.json())
   .then(list=>{
     hideLoading();
@@ -347,7 +347,7 @@ function checkout(id){
 
   showLoading();
 
-  fetch(API+"?action=submit&memberId="+id+"&type=OUT")
+  fetch(API+"?key=4570-SECURE-KEY&action=submit&memberId="+id+"&type=OUT")
   .then(()=>{
     hideLoading();
     setStatus("Checked out");
