@@ -129,7 +129,7 @@ input {
 <div id="timer"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbzca5j3e6whvnA_TtT94mSJJujgo6kM7DaJX9wQ5DwJFBaOJ2T2vyg993g0nJEP1jZt/exec";
+const API = "https://script.google.com/macros/s/AKfycbwHMz8RZ6LesKAUbOcUVSTYVWRHJWNt05QqV0LZS_FkniflTRpfTECdoT3_RJ4S4Kxt/exec";
 
 let membersList = [];
 let activeUsers = [];
@@ -167,14 +167,14 @@ function setStatus(msg){
 
 // MEMBERS
 function loadMembers(){
-  fetch(API + "?key=4570-SECURE-KEY&action=members")
+  fetch(API + "?key=9502180671447&action=members")
   .then(r=>r.json())
   .then(d=> membersList = d.map(x=>String(x)));
 }
 
 // ACTIVE USERS
 function loadActiveUsers(){
-  return fetch(API + "?key=4570-SECURE-KEY&action=active")
+  return fetch(API + "?key=9502180671447&action=active")
   .then(r=>r.json())
   .then(d=> activeUsers = d.map(x=>String(x)));
 }
@@ -298,7 +298,7 @@ function submitCheckIn(){
   });
 
 fetch(API +
-  "?key=4570-SECURE-KEY" +
+  "?key=9502180671447" +
   "&action=submit" +
   "&memberId=" + encodeURIComponent(memberId) +
   "&positions=" + encodeURIComponent(selectedPositions.join(",")) +
@@ -325,7 +325,7 @@ fetch(API +
 function startCheckOut(){
   showLoading();
 
-  fetch(API + "?key=4570-SECURE-KEY&action=active")
+  fetch(API + "?key=9502180671447&action=active")
   .then(r => r.json())
   .then(list => {
     hideLoading();
@@ -360,7 +360,7 @@ function checkout(id){
   showLoading();
 
   fetch(API +
-  "?key=4570-SECURE-KEY" +
+  "?key=9502180671447" +
   "&action=submit" +
   "&memberId=" + encodeURIComponent(id) +
   "&type=OUT"
