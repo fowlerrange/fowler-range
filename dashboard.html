@@ -4,30 +4,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body {
-  font-family: Arial;
-  text-align: center;
-  margin: 0;
-}
+body { font-family: Arial; text-align: center; margin: 0; }
 
-.container {
-  padding: 20px;
-}
+.container { padding: 20px; }
 
-button {
-  margin: 5px;
-  padding: 10px;
-  font-size: 16px;
-}
+button { margin: 5px; padding: 10px; font-size: 16px; }
 
-.hidden {
-  display: none;
-}
+.hidden { display: none; }
 
-.stat {
-  font-size: 24px;
-  margin: 10px;
-}
+.stat { font-size: 24px; margin: 10px; }
 
 #login {
   height: 100vh;
@@ -40,7 +25,6 @@ button {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 10px;
 }
 
 .posBox {
@@ -48,7 +32,6 @@ button {
   height: 40px;
   margin: 4px;
   line-height: 40px;
-  font-size: 14px;
   color: white;
   border-radius: 4px;
 }
@@ -56,9 +39,7 @@ button {
 .green { background: #4CAF50; }
 .red { background: #d9534f; }
 
-canvas {
-  max-width: 100%;
-}
+canvas { max-width: 100%; }
 </style>
 </head>
 
@@ -101,6 +82,7 @@ canvas {
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbzlKcg8XcR8rJl8QKbzxtxvh7zJtAikaD6lQlM11DRMEQtBZU2ARXpfUsFCdXMx6hA5/exec";
+const API_KEY = "9502180671447"; // 🔐 must match backend
 const PIN = "4570";
 
 let currentRange = 1;
@@ -126,7 +108,7 @@ function setRange(days){
 
 // LOAD
 function loadData(){
-  fetch(API + "?action=dashboard&days=" + currentRange)
+  fetch(API + "?action=dashboard&days=" + currentRange + "&key=" + API_KEY)
     .then(r => r.json())
     .then(data => {
 
@@ -142,10 +124,7 @@ function loadData(){
         list.appendChild(d);
       });
 
-      // POSITIONS
       renderPositions(data.positions || []);
-
-      // CHART
       renderChart(data.chart || []);
     });
 }
