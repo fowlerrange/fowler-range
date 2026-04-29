@@ -38,8 +38,8 @@ th { background:#eee; }
   </div>
 </div>
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyr5plvCV3si5dXiCwcKiTHyWcc8CuFFKrY041QGGp3Ni91ZvEwRBJdVpdj5l9AalY/exec";
-const API_KEY = "9502180671447";
+const API = "https://script.google.com/macros/s/AKfycbxA_ue6DKJo-Q7CqKcPgk7gx9NicqqPboOqnfwcaIuDcNNju1ZnwmfnaOylscM7YQpO/exec";
+const API_KEY = "950218067144772919";
 const PIN = "4570";
 function login(){ if(document.getElementById("pin").value===PIN){ document.getElementById("login").style.display="none"; document.getElementById("admin").classList.remove("hidden"); loadLogs(); } else alert("Wrong PIN"); }
 function jsonp(params, cbfn){ const cb="cb_"+Math.floor(Math.random()*1000000000); window[cb]=function(data){ delete window[cb]; cbfn(data); }; const s=document.createElement("script"); s.src=API+"?"+params+"&key="+API_KEY+"&cb="+cb; document.body.appendChild(s); setTimeout(()=>{try{s.remove()}catch(e){}},15000); }
