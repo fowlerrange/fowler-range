@@ -2,89 +2,23 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <style>
-body {
-  font-family: Arial;
-  margin: 0;
-  text-align: center;
-}
-
-.screen {
-  height: 100vh;
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-button {
-  font-size: 18px;
-  margin: 6px;
-  padding: 6px 10px;
-  min-width: 60px;
-}
-
-input {
-  font-size: 22px;
-  padding: 10px;
-  width: 250px;
-  text-align: center;
-}
-
-#positionsGrid {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-#supplyLines {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-#supplies {
-  padding-bottom: 200px;
-}
-
-#status {
-  color: red;
-  margin-top: 10px;
-}
-
-#timer {
-  position: fixed;
-  bottom: 5px;
-  right: 10px;
-  font-size: 14px;
-  color: gray;
-}
-
-/* Spinner */
-.spinner {
-  border: 6px solid #eee;
-  border-top: 6px solid #333;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  100% { transform: rotate(360deg); }
-}
+body { font-family: Arial; margin: 0; text-align: center; }
+.screen { height: 100vh; display: none; flex-direction: column; justify-content: center; align-items: center; }
+button { font-size: 18px; margin: 6px; padding: 6px 10px; min-width: 60px; }
+input { font-size: 22px; padding: 10px; width: 250px; text-align: center; }
+#positionsGrid, #supplyLines { display: flex; flex-direction: column; align-items: center; }
+#supplies { padding-bottom: 200px; }
+#status { color: red; margin-top: 10px; }
+#timer { position: fixed; bottom: 5px; right: 10px; font-size: 14px; color: gray; }
+#queueStatus { position: fixed; bottom: 25px; right: 10px; font-size: 13px; color: #555; }
+.spinner { border: 6px solid #eee; border-top: 6px solid #333; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
 </style>
 </head>
-
 <body>
+<div id="loading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9999; justify-content:center; align-items:center; flex-direction:column;"></div>
 
-<!-- LOADING -->
-<div id="loading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
-  <div style="font-size:22px; margin-bottom:15px;">Please wait...</div>
-  <div class="spinner"></div>
-</div>
-
-<!-- HOME -->
 <div id="home" class="screen" style="display:flex;">
   <img src="Logo.jpeg" style="max-width:150px; margin-bottom:20px;">
   <h1>Fowler Range</h1>
@@ -92,7 +26,6 @@ input {
   <button onclick="startCheckOut()">Check Out</button>
 </div>
 
-<!-- MEMBER -->
 <div id="member" class="screen">
   <img src="Logo.jpeg" style="max-width:150px;">
   <h2>Enter Member ID</h2>
@@ -100,7 +33,6 @@ input {
   <button onclick="goPositions()">Next</button>
 </div>
 
-<!-- POSITIONS -->
 <div id="positions" class="screen">
   <img src="Logo.jpeg" style="max-width:150px;">
   <h2>Select Positions</h2>
@@ -109,7 +41,6 @@ input {
   <button onclick="goSupplies()">Next</button>
 </div>
 
-<!-- SUPPLIES -->
 <div id="supplies" class="screen">
   <img src="Logo.jpeg" style="max-width:150px;">
   <h2>Ammo / Caliber</h2>
@@ -118,7 +49,6 @@ input {
   <button onclick="submitCheckIn()">Submit</button>
 </div>
 
-<!-- CHECKOUT -->
 <div id="checkout" class="screen">
   <img src="Logo.jpeg" style="max-width:150px;">
   <h2>Check Out</h2>
@@ -126,291 +56,258 @@ input {
 </div>
 
 <div id="status"></div>
+<div id="queueStatus"></div>
 <div id="timer"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyr5plvCV3si5dXiCwcKiTHyWcc8CuFFKrY041QGGp3Ni91ZvEwRBJdVpdj5l9AalY/exec";
+const API = "https://script.google.com/macros/s/AKfycbxA_ue6DKJo-Q7CqKcPgk7gx9NicqqPboOqnfwcaIuDcNNju1ZnwmfnaOylscM7YQpO/exec";
+const API_KEY = "950218067144772919";
 
 let membersList = [];
 let activeUsers = [];
 let memberId = "";
 let selectedPositions = [];
 let submitting = false;
+let checkingOut = false;
 
-// INIT
 window.onload = function(){
   buildPositions();
   loadMembers();
+  loadCachedMembers();
+  syncQueue();
   resetTimer();
+  updateQueueStatus();
 };
 
-// LOADING
+window.addEventListener("online", syncQueue);
+setInterval(syncQueue, 10000);
+
 function showLoading(){
-  document.getElementById("loading").innerHTML = `
-    <div style="font-size:22px; margin-bottom:15px;">Please wait...</div>
-    <div class="spinner"></div>
-  `;
+  document.getElementById("loading").innerHTML = `<div style="font-size:22px; margin-bottom:15px;">Please wait...</div><div class="spinner"></div>`;
   document.getElementById("loading").style.display = "flex";
 }
-
 function showSuccess(message){
-  document.getElementById("loading").innerHTML = `
-    <div style="font-size:22px;">${message}</div>
-  `;
+  document.getElementById("loading").innerHTML = `<div style="font-size:22px;">${message}</div>`;
   document.getElementById("loading").style.display = "flex";
 }
+function hideLoading(){ document.getElementById("loading").style.display = "none"; }
 
-function hideLoading(){
-  document.getElementById("loading").style.display = "none";
-}
-
-// UI
 function showScreen(id){
   setStatus("");
   document.querySelectorAll(".screen").forEach(s => s.style.display = "none");
   document.getElementById(id).style.display = "flex";
+  setTimeout(()=>{ let input = document.querySelector("#"+id+" input"); if(input) input.focus(); },300);
+}
+function setStatus(msg){ document.getElementById("status").innerText = msg; }
 
-  setTimeout(()=>{
-    let input = document.querySelector("#"+id+" input");
-    if(input) input.focus();
-  },300);
+function loadCachedMembers(){
+  try {
+    const cached = JSON.parse(localStorage.getItem("membersCache") || "[]");
+    if (cached.length && !membersList.length) membersList = cached.map(String);
+  } catch(e) {}
 }
 
-// STATUS
-function setStatus(msg){
-  document.getElementById("status").innerText = msg;
-}
-
-// MEMBERS
 function loadMembers(){
-  fetch(API + "?key=9502180671447&action=members")
+  fetch(API + "?key=" + API_KEY + "&action=members")
   .then(r=>r.json())
-  .then(d=> membersList = d.map(x=>String(x)));
+  .then(d=>{
+    membersList = d.map(x=>String(x));
+    localStorage.setItem("membersCache", JSON.stringify(membersList));
+  })
+  .catch(()=> loadCachedMembers());
 }
 
-// ACTIVE USERS
 function loadActiveUsers(){
-  return fetch(API + "?key=9502180671447&action=active")
+  return fetch(API + "?key=" + API_KEY + "&action=active")
   .then(r=>r.json())
-  .then(d=> activeUsers = d.map(x=>String(x)));
+  .then(d=>{
+    activeUsers = d.map(x=>String(x));
+    localStorage.setItem("activeCache", JSON.stringify(activeUsers));
+  })
+  .catch(()=>{
+    activeUsers = JSON.parse(localStorage.getItem("activeCache") || "[]").map(String);
+  });
 }
 
-// POSITIONS
 function buildPositions(){
   const grid = document.getElementById("positionsGrid");
   grid.innerHTML="";
-
   function makeRow(title, nums){
     let section = document.createElement("div");
     let h = document.createElement("h3");
     h.innerText = title;
-
     let row = document.createElement("div");
-
     nums.forEach(n=>{
       let b = document.createElement("button");
       b.innerText=n;
       b.onclick=()=>{
         if(selectedPositions.includes(n)){
-          selectedPositions=selectedPositions.filter(x=>x!==n);
-          b.style.background="";
-          b.style.color="";
+          selectedPositions=selectedPositions.filter(x=>x!==n); b.style.background=""; b.style.color="";
         }else{
-          selectedPositions.push(n);
-          b.style.background="#4CAF50";
-          b.style.color="white";
+          selectedPositions.push(n); b.style.background="#4CAF50"; b.style.color="white";
         }
       };
       row.appendChild(b);
     });
-
-    section.appendChild(h);
-    section.appendChild(row);
-    grid.appendChild(section);
+    section.appendChild(h); section.appendChild(row); grid.appendChild(section);
   }
-
   makeRow("25 Yards",[1,2,3,4,5,6,7,8,9]);
   makeRow("50 Yards",[10,11,12,13,14,15,16,17]);
   makeRow("100 Yards",[35,36,37,38,39,40,41,42]);
 }
 
-// SUPPLIES
 function buildSupplies(){
   const c = document.getElementById("supplyLines");
   c.innerHTML="";
-
   for(let i=0;i<10;i++){
     let input=document.createElement("input");
     input.placeholder="Caliber "+(i+1);
     input.disabled = i!==0;
-
     input.oninput=()=>{
       let inputs=c.querySelectorAll("input");
-      for(let j=0;j<inputs.length;j++){
-        inputs[j].disabled = (j!==0 && inputs[j-1].value==="");
-      }
+      for(let j=0;j<inputs.length;j++) inputs[j].disabled = (j!==0 && inputs[j-1].value.trim()==="");
     };
-
     c.appendChild(input);
   }
 }
 
-// FLOW
-function startCheckIn(){
-  memberId="";
-  selectedPositions=[];
-  showScreen("member");
-}
+function startCheckIn(){ memberId=""; selectedPositions=[]; showScreen("member"); }
 
 async function goPositions(){
   let val=document.getElementById("memberInput").value.trim();
   if(!val){ setStatus("Enter Member ID"); return; }
-
   memberId=String(val);
-
   showLoading();
 
-  if(!membersList.includes(memberId)){
+  if(!membersList.length) loadCachedMembers();
+  if(!membersList.length){
+    hideLoading();
+    if(!confirm("Member list unavailable. Continue anyway?")) return;
+    showLoading();
+  } else if(!membersList.includes(memberId)){
     hideLoading();
     if(!confirm("Member not found. Continue?")) return;
     showLoading();
   }
 
   await loadActiveUsers();
-
   if(activeUsers.includes(memberId)){
     hideLoading();
-    if(confirm("Already checked in. Check out?")){
-      checkout(memberId);
-    } else {
-      showScreen("home");
-    }
+    if(confirm("Already checked in. Check out?")) checkout(memberId); else showScreen("home");
     return;
   }
-
   hideLoading();
   showScreen("positions");
 }
 
-function goSupplies(){
-  showLoading();
-  setTimeout(()=>{
-    buildSupplies();
-    hideLoading();
-    showScreen("supplies");
-  },200);
+function goSupplies(){ showLoading(); setTimeout(()=>{ buildSupplies(); hideLoading(); showScreen("supplies"); },200); }
+
+function buildSubmitUrl(item){
+  return API +
+    "?key=" + API_KEY +
+    "&action=submit" +
+    "&memberId=" + encodeURIComponent(item.memberId) +
+    "&positions=" + encodeURIComponent(item.positions || "") +
+    "&supplies=" + encodeURIComponent(item.supplies || "") +
+    "&type=" + encodeURIComponent(item.type) +
+    "&queued=" + encodeURIComponent(item.queued || "");
 }
 
-// SUBMIT
+function getQueue(){ return JSON.parse(localStorage.getItem("offlineQueue") || "[]"); }
+function saveQueue(q){ localStorage.setItem("offlineQueue", JSON.stringify(q)); updateQueueStatus(); }
+function queueSubmission(item){ const q=getQueue(); q.push(item); saveQueue(q); }
+function updateQueueStatus(){ const n=getQueue().length; document.getElementById("queueStatus").innerText = n ? ("Pending uploads: "+n) : ""; }
+
+function sendSubmission(item){
+  return fetch(buildSubmitUrl(item)).then(r=>r.json()).then(res=>{
+    if(res.error) throw new Error(res.error);
+    return res;
+  });
+}
+
+function syncQueue(){
+  const q = getQueue();
+  if(!q.length || !navigator.onLine) { updateQueueStatus(); return; }
+  const item = q[0];
+  sendSubmission(item).then(()=>{
+    q.shift(); saveQueue(q); syncQueue();
+  }).catch(()=> updateQueueStatus());
+}
+
 function submitCheckIn(){
   if(submitting) return;
   submitting=true;
-
   showLoading();
 
   let supplies=[];
-  document.querySelectorAll("#supplyLines input").forEach(i=>{
-    if(i.value.trim()) supplies.push(i.value.trim());
+  document.querySelectorAll("#supplyLines input").forEach(i=>{ if(i.value.trim()) supplies.push(i.value.trim()); });
+  const item = {
+    memberId,
+    positions: selectedPositions.join(","),
+    supplies: supplies.join(","),
+    type: "IN",
+    queued: ""
+  };
+
+  sendSubmission(item).then(()=>{
+    showSuccess("Successfully Checked In");
+    setTimeout(()=>location.reload(), 2000);
+  }).catch(err=>{
+    if(!navigator.onLine || String(err.message).includes("Failed to fetch")){
+      item.queued = new Date().toISOString();
+      queueSubmission(item);
+      showSuccess("Saved. Will upload when online.");
+      setTimeout(()=>location.reload(), 2500);
+    } else {
+      submitting=false; hideLoading(); setStatus(err.message || "Error");
+    }
   });
-
-fetch(API +
-  "?key=9502180671447" +
-  "&action=submit" +
-  "&memberId=" + encodeURIComponent(memberId) +
-  "&positions=" + encodeURIComponent(selectedPositions.join(",")) +
-  "&supplies=" + encodeURIComponent(supplies.join(",")) +
-  "&type=IN"
-)
-.then(r => r.json())
-.then(res => {
-  if(res.error){
-    throw new Error(res.error);
-  }
-
-  showSuccess("Successfully Checked In");
-  setTimeout(()=>location.reload(), 2000);
-  
-})
-.catch(err=>{
-  submitting=false;
-  hideLoading();
-  setStatus(err.message || "Error");
-});
 }
-// CHECKOUT
+
 function startCheckOut(){
   showLoading();
-
-  fetch(API + "?key=9502180671447&action=active")
-  .then(r => r.json())
-  .then(list => {
+  loadActiveUsers().then(()=>{
     hideLoading();
-
     let div = document.getElementById("activeUsers");
     div.innerHTML = "";
-
-    if(list.length === 0){
+    if(activeUsers.length === 0){
       div.innerHTML = "<p>No active users</p>";
-      showScreen("checkout");
-      setTimeout(()=>location.reload(),3000);
-      return;
+      showScreen("checkout"); setTimeout(()=>location.reload(),3000); return;
     }
-
-    list.forEach(id=>{
+    activeUsers.forEach(id=>{
       let b = document.createElement("button");
       b.innerText = id;
       b.onclick = () => checkout(id);
       div.appendChild(b);
     });
-
-    showScreen("checkout"); // ✅ inside the .then
+    showScreen("checkout");
   });
 }
 
-let checkingOut = false;
-
 function checkout(id){
-  if(checkingOut) return;   // 🚫 block double tap
+  if(checkingOut) return;
   checkingOut = true;
-
   showLoading();
-
-  fetch(API +
-  "?key=9502180671447" +
-  "&action=submit" +
-  "&memberId=" + encodeURIComponent(id) +
-  "&type=OUT"
-)
-.then(r => r.json())
-.then(res => {
-  if(res.error){
-    throw new Error(res.error);
-  }
-
-  showSuccess("Successfully Checked Out");
-  setTimeout(()=>location.reload(), 2000);
-})
-.catch(err=>{
-  checkingOut = false;
-  hideLoading();
-  setStatus(err.message || "Error");
-});
-  
+  const item = { memberId: String(id), positions: "", supplies: "", type: "OUT", queued: "" };
+  sendSubmission(item).then(()=>{
+    showSuccess("Successfully Checked Out");
+    setTimeout(()=>location.reload(), 2000);
+  }).catch(err=>{
+    if(!navigator.onLine || String(err.message).includes("Failed to fetch")){
+      item.queued = new Date().toISOString();
+      queueSubmission(item);
+      showSuccess("Saved. Will upload when online.");
+      setTimeout(()=>location.reload(), 2500);
+    } else {
+      checkingOut = false; hideLoading(); setStatus(err.message || "Error");
+    }
+  });
 }
 
-// TIMER
 let idle=60;
-setInterval(()=>{
-  idle--;
-  document.getElementById("timer").innerText="Reset in "+idle+"s";
-  if(idle<=0) location.reload();
-},1000);
-
+setInterval(()=>{ idle--; document.getElementById("timer").innerText="Reset in "+idle+"s"; if(idle<=0) location.reload(); },1000);
 function resetTimer(){ idle=60; }
-document.onclick=resetTimer;
-document.onmousemove=resetTimer;
-document.onkeypress=resetTimer;
-
+document.onclick=resetTimer; document.onmousemove=resetTimer; document.onkeypress=resetTimer;
 </script>
 </body>
 </html>
