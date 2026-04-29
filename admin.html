@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: Arial; margin:0; text-align:center; background:#f6f6f6; }
+.container { padding:20px; }
+button { margin:6px; padding:10px 14px; font-size:16px; border-radius:8px; border:1px solid #ccc; background:white; }
+input { font-size:18px; padding:8px; margin:6px; }
+.card { background:white; border-radius:10px; padding:14px; margin:12px auto; max-width:900px; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+table { border-collapse: collapse; width:100%; font-size:13px; }
+th,td { border:1px solid #ddd; padding:5px; }
+th { background:#eee; }
+#login { height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+.hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="login">
+  <h2>Admin Login</h2>
+  <input id="pin" placeholder="PIN" inputmode="numeric">
+  <button onclick="login()">Enter</button>
+</div>
+<div id="admin" class="hidden container">
+  <h1>Fowler Range Admin</h1>
+  <div class="card">
+    <h3>Force Checkout</h3>
+    <input id="memberId" placeholder="Member ID" inputmode="numeric">
+    <button onclick="forceCheckout()">Force Checkout</button>
+    <button onclick="clearStuck()">Clear All Active Sessions</button>
+    <button onclick="backupNow()">Backup Now</button>
+    <div id="status"></div>
+  </div>
+  <div class="card">
+    <h3>Recent Logs</h3>
+    <button onclick="loadLogs()">Refresh Logs</button>
+    <div id="logs"></div>
+  </div>
+</div>
+<script>
+const API = "https://script.google.com/macros/s/AKfycbyr5plvCV3si5dXiCwcKiTHyWcc8CuFFKrY041QGGp3Ni91ZvEwRBJdVpdj5l9AalY/exec";
+const API_KEY = "9502180671447";
+const PIN = "4570";
+function login(){ if(document.getElementById("pin").value===PIN){ document.getElementById("login").style.display="none"; document.getElementById("admin").classList.remove("hidden"); loadLogs(); } else alert("Wrong PIN"); }
+function jsonp(params, cbfn){ const cb="cb_"+Math.floor(Math.random()*1000000000); window[cb]=function(data){ delete window[cb]; cbfn(data); }; const s=document.createElement("script"); s.src=API+"?"+params+"&key="+API_KEY+"&cb="+cb; document.body.appendChild(s); setTimeout(()=>{try{s.remove()}catch(e){}},15000); }
+function setStatus(msg){ document.getElementById("status").innerText=msg; }
+function forceCheckout(){ const id=document.getElementById("memberId").value.trim(); if(!id){ setStatus("Enter member ID"); return; } jsonp("action=adminForceCheckout&memberId="+encodeURIComponent(id), d=>{ setStatus(d.success ? "Checked out " + id : d.error); loadLogs(); }); }
+function clearStuck(){ if(!confirm("Check out all currently active users?")) return; jsonp("action=adminClearStuck", d=>{ setStatus("Cleared " + (d.cleared || 0) + " sessions"); loadLogs(); }); }
+function backupNow(){ jsonp("action=adminBackupNow", d=>{ setStatus(d.success ? "Backup created: " + d.name : "Backup failed"); }); }
+function loadLogs(){ jsonp("action=adminLogs&limit=100", d=>{ const div=document.getElementById("logs"); let html="<table><tr>"; (d.headers||[]).forEach(h=>html+="<th>"+h+"</th>"); html+="</tr>"; (d.rows||[]).forEach(r=>{ html+="<tr>"; r.forEach(c=>html+="<td>"+c+"</td>"); html+="</tr>"; }); html+="</table>"; div.innerHTML=html; }); }
+</script>
+</body>
+</html>
