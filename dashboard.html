@@ -2,207 +2,98 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <style>
-body {
-  font-family: Arial;
-  margin: 0;
-  text-align: center;
-}
-
-.container {
-  padding: 20px;
-}
-
-button {
-  margin: 5px;
-  padding: 10px;
-  font-size: 16px;
-}
-
-.hidden {
-  display: none;
-}
-
-.stat {
-  font-size: 24px;
-  margin: 10px;
-}
-
-#login {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-#positions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.posBox {
-  width: 40px;
-  height: 40px;
-  margin: 4px;
-  line-height: 40px;
-  color: white;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
+body { font-family: Arial; margin: 0; text-align: center; background:#f6f6f6; }
+.container { padding: 18px; }
+.cards { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:14px 0; }
+.card { background:white; border-radius:10px; padding:16px 22px; min-width:160px; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+.card .label { font-size:14px; color:#666; }
+.card .value { font-size:34px; font-weight:bold; margin-top:6px; }
+button { margin: 5px; padding: 10px 14px; font-size: 16px; border-radius:8px; border:1px solid #ccc; background:white; }
+button.activeRange { background:#333; color:white; }
+#positions { display: flex; flex-wrap: wrap; justify-content: center; margin: 10px auto; max-width: 760px; }
+.posBox { width: 42px; height: 42px; margin: 4px; line-height: 42px; color: white; border-radius: 6px; font-size: 14px; font-weight:bold; }
 .green { background: #4CAF50; }
 .red { background: #d9534f; }
-
-canvas {
-  max-width: 100%;
-  margin-top: 20px;
-}
+#activeList { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.activeUser { background:white; border-radius:8px; padding:8px 12px; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+#statusBar { color:#555; font-size:13px; margin-top:8px; }
+.chartWrap { background:white; border-radius:10px; padding:14px; margin:16px auto; max-width:900px; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+canvas { max-width: 100%; margin-top: 10px; }
 </style>
 </head>
-
 <body>
-
-<!-- LOGIN -->
-<div id="login">
-  <h2>Dashboard Login</h2>
-  <input id="pin" placeholder="Enter PIN">
-  <button onclick="login()">Enter</button>
-</div>
-
-<!-- DASHBOARD -->
-<div id="dashboard" class="hidden container">
-
+<div class="container">
   <h1>Fowler Range Dashboard</h1>
-
   <div>
-    <button onclick="setRange(1)">Today</button>
-    <button onclick="setRange(7)">7 Days</button>
-    <button onclick="setRange(30)">30 Days</button>
-    <button onclick="setRange(365)">1 Year</button>
+    <button id="btn1" onclick="setRange(1)">Today</button>
+    <button id="btn7" onclick="setRange(7)">7 Days</button>
+    <button id="btn30" onclick="setRange(30)">30 Days</button>
+    <button id="btn365" onclick="setRange(365)">1 Year</button>
   </div>
-
-  <div class="stat" id="total"></div>
-  <div class="stat" id="active"></div>
+  <div class="cards">
+    <div class="card"><div class="label">Check-ins</div><div class="value" id="total">--</div></div>
+    <div class="card"><div class="label">Check-outs</div><div class="value" id="checkoutTotal">--</div></div>
+    <div class="card" id="activeCard"><div class="label">Active Now</div><div class="value" id="active">--</div></div>
+    <div class="card"><div class="label">Free Positions</div><div class="value" id="freePositions">--</div></div>
+  </div>
 
   <h3>Active Users</h3>
   <div id="activeList"></div>
 
-  <h3>Positions (Live)</h3>
+  <h3>Positions Live</h3>
   <div id="positions"></div>
 
-  <h3>Check-ins Over Time</h3>
-  <canvas id="chart"></canvas>
+  <div class="chartWrap">
+    <h3>Check-ins Over Time</h3>
+    <canvas id="chart"></canvas>
+  </div>
 
+  <div id="statusBar"></div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyr5plvCV3si5dXiCwcKiTHyWcc8CuFFKrY041QGGp3Ni91ZvEwRBJdVpdj5l9AalY/exec";
-const API_KEY = "9502180671447";
-const PIN = "4570";
-
+const API = "https://script.google.com/macros/s/AKfycbxA_ue6DKJo-Q7CqKcPgk7gx9NicqqPboOqnfwcaIuDcNNju1ZnwmfnaOylscM7YQpO/exec";
+const API_KEY = "950218067144772919";
 let currentRange = 1;
 let chart;
+let rotateRanges = [1,7,30,365];
+let rotateIndex = 0;
+const allPositions = [...Array.from({length:9},(_,i)=>i+1), ...Array.from({length:8},(_,i)=>i+10), ...Array.from({length:8},(_,i)=>i+35)];
 
-// LOGIN
-function login(){
-  if(document.getElementById("pin").value === PIN){
-    document.getElementById("login").style.display = "none";
-    document.getElementById("dashboard").classList.remove("hidden");
-
-    loadData();
-    setInterval(loadData, 10000);
-  } else {
-    alert("Wrong PIN");
-  }
-}
-
-// RANGE
-function setRange(days){
-  currentRange = days;
-  loadData();
-}
-
-// JSONP LOAD (NO CORS)
+window.onload = function(){ setRange(1); setInterval(loadData, 10000); setInterval(autoRotate, 60000); };
+function autoRotate(){ rotateIndex = (rotateIndex + 1) % rotateRanges.length; setRange(rotateRanges[rotateIndex]); }
+function setRange(days){ currentRange = days; document.querySelectorAll("button").forEach(b=>b.classList.remove("activeRange")); const btn=document.getElementById("btn"+days); if(btn) btn.classList.add("activeRange"); loadData(); }
 function loadData(){
-  const callbackName = "cb_" + Math.floor(Math.random() * 1000000);
-
-  window[callbackName] = function(data){
-    delete window[callbackName];
-
-    // STATS
-    document.getElementById("total").innerText =
-      "Total Check-ins: " + data.total;
-
-    document.getElementById("active").innerText =
-      "Active Now: " + data.active.length;
-
-    // ACTIVE USERS
-    let list = document.getElementById("activeList");
-    list.innerHTML = "";
-    data.active.forEach(u => {
-      let d = document.createElement("div");
-      d.innerText = u;
-      list.appendChild(d);
-    });
-
-    // POSITIONS
-    renderPositions(data.positions || []);
-
-    // CHART
-    renderChart(data.chart || []);
-  };
-
-  const script = document.createElement("script");
-  script.src = API +
-    "?action=dashboard" +
-    "&days=" + currentRange +
-    "&key=" + API_KEY +
-    "&cb=" + callbackName;
-
-  document.body.appendChild(script);
+  const cb = "cb_" + Math.floor(Math.random()*1000000000);
+  window[cb] = function(data){ delete window[cb]; render(data); };
+  const s = document.createElement("script");
+  s.src = API + "?action=dashboard&days=" + currentRange + "&key=" + API_KEY + "&cb=" + cb;
+  document.body.appendChild(s);
+  setTimeout(()=>{ try { s.remove(); } catch(e){} }, 15000);
 }
-
-// POSITIONS GRID
+function render(data){
+  document.getElementById("total").innerText = data.total || 0;
+  document.getElementById("checkoutTotal").innerText = data.checkoutTotal || 0;
+  document.getElementById("active").innerText = (data.active || []).length;
+  document.getElementById("freePositions").innerText = allPositions.length - (data.positions || []).length;
+  const activeCard = document.getElementById("activeCard");
+  activeCard.style.background = (data.active || []).length >= 20 ? "#ffd6d6" : "white";
+  const list = document.getElementById("activeList"); list.innerHTML = "";
+  (data.active || []).forEach(u=>{ let d=document.createElement("div"); d.className="activeUser"; d.innerText=u; list.appendChild(d); });
+  renderPositions(data.positions || []);
+  renderChart(data.chart || []);
+  document.getElementById("statusBar").innerText = "Last updated: " + new Date().toLocaleTimeString();
+}
 function renderPositions(activePositions){
-  const container = document.getElementById("positions");
-  container.innerHTML = "";
-
-  const allPositions = [
-    ...Array.from({length:9},(_,i)=>i+1),
-    ...Array.from({length:8},(_,i)=>i+10),
-    ...Array.from({length:8},(_,i)=>i+35)
-  ];
-
-  allPositions.forEach(p => {
-    const box = document.createElement("div");
-    box.className = "posBox " + (activePositions.includes(p) ? "red" : "green");
-    box.innerText = p;
-    container.appendChild(box);
-  });
+  const container = document.getElementById("positions"); container.innerHTML = "";
+  allPositions.forEach(p=>{ const box=document.createElement("div"); box.className="posBox " + (activePositions.includes(p) ? "red" : "green"); box.innerText=p; container.appendChild(box); });
 }
-
-// CHART
 function renderChart(data){
   const ctx = document.getElementById("chart").getContext("2d");
-
   if(chart) chart.destroy();
-
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: data.map(d => d.date),
-      datasets: [{
-        label: "Check-ins",
-        data: data.map(d => d.count)
-      }]
-    }
-  });
+  chart = new Chart(ctx, { type:'bar', data:{ labels:data.map(d=>d.date), datasets:[{ label:"Check-ins", data:data.map(d=>d.count) }] }, options:{ plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
 }
 </script>
-
 </body>
 </html>
