@@ -2,52 +2,302 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fowler Range Admin</title>
 <style>
-body { font-family: Arial; margin:0; text-align:center; background:#f6f6f6; }
-.container { padding:20px; }
-button { margin:6px; padding:10px 14px; font-size:16px; border-radius:8px; border:1px solid #ccc; background:white; }
-input { font-size:18px; padding:8px; margin:6px; }
-.card { background:white; border-radius:10px; padding:14px; margin:12px auto; max-width:900px; box-shadow:0 2px 8px rgba(0,0,0,.12); }
-table { border-collapse: collapse; width:100%; font-size:13px; }
-th,td { border:1px solid #ddd; padding:5px; }
-th { background:#eee; }
-#login { height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; }
-.hidden { display:none; }
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f5f5f5;
+  color: #222;
+}
+
+header {
+  background: #222;
+  color: white;
+  padding: 18px;
+  text-align: center;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+button {
+  font-size: 16px;
+  padding: 10px 14px;
+  margin: 6px;
+  cursor: pointer;
+}
+
+input {
+  font-size: 16px;
+  padding: 10px;
+  margin: 6px;
+  width: 220px;
+}
+
+.status {
+  font-weight: bold;
+  margin-top: 10px;
+  min-height: 24px;
+}
+
+.good { color: #2e7d32; }
+.bad { color: #c62828; }
+.warn { color: #ef6c00; }
+
+.userButton {
+  min-width: 110px;
+  background: #eee;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+}
+
+.danger {
+  background: #d9534f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+
+.primary {
+  background: #2f6fed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: left;
+}
+
+th {
+  background: #eee;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
 </style>
 </head>
 <body>
-<div id="login">
-  <h2>Admin Login</h2>
-  <input id="pin" placeholder="PIN" inputmode="numeric">
-  <button onclick="login()">Enter</button>
-</div>
-<div id="admin" class="hidden container">
+<header>
   <h1>Fowler Range Admin</h1>
+</header>
+
+<div class="container">
   <div class="card">
-    <h3>Force Checkout</h3>
-    <input id="memberId" placeholder="Member ID" inputmode="numeric">
-    <button onclick="forceCheckout()">Force Checkout</button>
-    <button onclick="clearStuck()">Clear All Active Sessions</button>
-    <button onclick="backupNow()">Backup Now</button>
-    <div id="status"></div>
+    <h2>System Status</h2>
+    <button class="primary" onclick="refreshAll()">Refresh</button>
+    <button onclick="runBackupNow()">Run Backup Now</button>
+    <div id="status" class="status"></div>
   </div>
+
   <div class="card">
-    <h3>Recent Logs</h3>
+    <h2>Currently Checked In</h2>
+    <p>Click a member number to force checkout that member.</p>
+    <div id="activeUsers">Loading...</div>
+  </div>
+
+  <div class="card">
+    <h2>Force Checkout by Member ID</h2>
+    <input id="forceMemberId" inputmode="numeric" placeholder="Member ID">
+    <button class="danger" onclick="forceCheckoutManual()">Force Checkout</button>
+  </div>
+
+  <div class="card">
+    <h2>Clear All Active Sessions</h2>
+    <p>This will check out every currently active member. Use only if the system is stuck.</p>
+    <button class="danger" onclick="clearAllActive()">Clear All Active</button>
+  </div>
+
+  <div class="card">
+    <h2>Recent Logs</h2>
     <button onclick="loadLogs()">Refresh Logs</button>
-    <div id="logs"></div>
+    <div class="tableWrap" id="logs">Loading...</div>
   </div>
 </div>
+
 <script>
-const API = "https://script.google.com/macros/s/AKfycbxA_ue6DKJo-Q7CqKcPgk7gx9NicqqPboOqnfwcaIuDcNNju1ZnwmfnaOylscM7YQpO/exec";
+const API = "https://script.google.com/macros/s/AKfycbxUO8fZMO3ziCCVJFza0_Pd1xVVZyVhNMiSd-omSAO_zvgWHe3SQIiD4r_Jun7TKA5q/exec";
 const API_KEY = "950218067144772919";
-const PIN = "4570";
-function login(){ if(document.getElementById("pin").value===PIN){ document.getElementById("login").style.display="none"; document.getElementById("admin").classList.remove("hidden"); loadLogs(); } else alert("Wrong PIN"); }
-function jsonp(params, cbfn){ const cb="cb_"+Math.floor(Math.random()*1000000000); window[cb]=function(data){ delete window[cb]; cbfn(data); }; const s=document.createElement("script"); s.src=API+"?"+params+"&key="+API_KEY+"&cb="+cb; document.body.appendChild(s); setTimeout(()=>{try{s.remove()}catch(e){}},15000); }
-function setStatus(msg){ document.getElementById("status").innerText=msg; }
-function forceCheckout(){ const id=document.getElementById("memberId").value.trim(); if(!id){ setStatus("Enter member ID"); return; } jsonp("action=adminForceCheckout&memberId="+encodeURIComponent(id), d=>{ setStatus(d.success ? "Checked out " + id : d.error); loadLogs(); }); }
-function clearStuck(){ if(!confirm("Check out all currently active users?")) return; jsonp("action=adminClearStuck", d=>{ setStatus("Cleared " + (d.cleared || 0) + " sessions"); loadLogs(); }); }
-function backupNow(){ jsonp("action=adminBackupNow", d=>{ setStatus(d.success ? "Backup created: " + d.name : "Backup failed"); }); }
-function loadLogs(){ jsonp("action=adminLogs&limit=100", d=>{ const div=document.getElementById("logs"); let html="<table><tr>"; (d.headers||[]).forEach(h=>html+="<th>"+h+"</th>"); html+="</tr>"; (d.rows||[]).forEach(r=>{ html+="<tr>"; r.forEach(c=>html+="<td>"+c+"</td>"); html+="</tr>"; }); html+="</table>"; div.innerHTML=html; }); }
+
+function setStatus(message, type){
+  const el = document.getElementById("status");
+  el.className = "status " + (type || "");
+  el.innerText = message;
+}
+
+function apiCall(action, params, callback){
+  const cbName = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+
+  window[cbName] = function(data){
+    delete window[cbName];
+    if (script.parentNode) script.parentNode.removeChild(script);
+    callback(data);
+  };
+
+  let url = API + "?action=" + encodeURIComponent(action) +
+    "&key=" + encodeURIComponent(API_KEY) +
+    "&cb=" + encodeURIComponent(cbName);
+
+  if (params) {
+    Object.keys(params).forEach(k => {
+      url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+    });
+  }
+
+  const script = document.createElement("script");
+  script.onerror = function(){
+    setStatus("Request failed", "bad");
+    delete window[cbName];
+  };
+  script.src = url;
+  document.body.appendChild(script);
+}
+
+function refreshAll(){
+  setStatus("Refreshing...", "warn");
+  loadActive();
+  loadLogs();
+}
+
+function loadActive(){
+  apiCall("admin_active", {}, function(data){
+    const div = document.getElementById("activeUsers");
+    div.innerHTML = "";
+
+    if (!data || data.length === 0) {
+      div.innerHTML = "<p>No active users.</p>";
+      setStatus("Ready", "good");
+      return;
+    }
+
+    data.forEach(memberId => {
+      const btn = document.createElement("button");
+      btn.className = "userButton";
+      btn.innerText = memberId;
+      btn.onclick = function(){
+        if (confirm("Force checkout member " + memberId + "?")) {
+          forceCheckout(memberId);
+        }
+      };
+      div.appendChild(btn);
+    });
+
+    setStatus("Ready", "good");
+  });
+}
+
+function forceCheckoutManual(){
+  const memberId = document.getElementById("forceMemberId").value.trim();
+  if (!memberId) {
+    setStatus("Enter a member ID", "bad");
+    return;
+  }
+
+  if (!confirm("Force checkout member " + memberId + "?")) return;
+  forceCheckout(memberId);
+}
+
+function forceCheckout(memberId){
+  setStatus("Checking out " + memberId + "...", "warn");
+  apiCall("admin_force_checkout", { memberId: memberId }, function(data){
+    if (data && data.success) {
+      setStatus("Member " + memberId + " checked out", "good");
+      document.getElementById("forceMemberId").value = "";
+      refreshAll();
+    } else {
+      setStatus((data && data.error) ? data.error : "Force checkout failed", "bad");
+    }
+  });
+}
+
+function clearAllActive(){
+  if (!confirm("This will check out ALL currently active members. Continue?")) return;
+
+  setStatus("Clearing active sessions...", "warn");
+  apiCall("admin_clear_stuck", {}, function(data){
+    if (data && data.success) {
+      setStatus("Cleared " + data.cleared + " active session(s)", "good");
+      refreshAll();
+    } else {
+      setStatus("Clear active sessions failed", "bad");
+    }
+  });
+}
+
+function runBackupNow(){
+  setStatus("Running backup...", "warn");
+  apiCall("admin_backup_now", {}, function(data){
+    if (data && data.success) {
+      setStatus("Backup created: " + data.name, "good");
+    } else {
+      setStatus("Backup failed", "bad");
+    }
+  });
+}
+
+function loadLogs(){
+  apiCall("admin_logs", { limit: 100 }, function(data){
+    const div = document.getElementById("logs");
+
+    if (!data || !data.headers || data.headers.length === 0) {
+      div.innerHTML = "<p>No logs found.</p>";
+      return;
+    }
+
+    let html = "<table><thead><tr>";
+    data.headers.forEach(h => html += "<th>" + escapeHtml(h) + "</th>");
+    html += "</tr></thead><tbody>";
+
+    data.rows.forEach(row => {
+      html += "<tr>";
+      row.forEach(cell => html += "<td>" + escapeHtml(formatCell(cell)) + "</td>");
+      html += "</tr>";
+    });
+
+    html += "</tbody></table>";
+    div.innerHTML = html;
+  });
+}
+
+function formatCell(value){
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function escapeHtml(value){
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+window.onload = function(){
+  refreshAll();
+  setInterval(loadActive, 10000);
+};
 </script>
 </body>
 </html>
