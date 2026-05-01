@@ -2,302 +2,239 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fowler Range Admin</title>
 <style>
 body {
-  font-family: Arial, sans-serif;
+  font-family: Arial;
   margin: 0;
-  background: #f5f5f5;
-  color: #222;
-}
-
-header {
-  background: #222;
-  color: white;
-  padding: 18px;
+  padding: 20px;
   text-align: center;
 }
-
-.container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
 .card {
-  background: white;
+  border: 1px solid #ccc;
   border-radius: 8px;
-  padding: 18px;
-  margin-bottom: 18px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  padding: 15px;
+  margin: 15px auto;
+  max-width: 700px;
 }
-
 button {
   font-size: 16px;
   padding: 10px 14px;
   margin: 6px;
-  cursor: pointer;
 }
-
 input {
-  font-size: 16px;
-  padding: 10px;
-  margin: 6px;
+  font-size: 18px;
+  padding: 8px;
   width: 220px;
 }
-
 .status {
   font-weight: bold;
-  margin-top: 10px;
-  min-height: 24px;
+  margin: 15px;
 }
-
-.good { color: #2e7d32; }
-.bad { color: #c62828; }
-.warn { color: #ef6c00; }
-
-.userButton {
-  min-width: 110px;
-  background: #eee;
-  border: 1px solid #bbb;
-  border-radius: 6px;
-}
-
-.danger {
-  background: #d9534f;
-  color: white;
-  border: none;
-  border-radius: 6px;
-}
-
-.primary {
-  background: #2f6fed;
-  color: white;
-  border: none;
-  border-radius: 6px;
-}
-
+.good { color: green; }
+.bad { color: red; }
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 14px;
+  font-size: 13px;
 }
-
-th, td {
+td, th {
   border: 1px solid #ccc;
-  padding: 6px;
-  text-align: left;
-}
-
-th {
-  background: #eee;
-}
-
-.tableWrap {
-  overflow-x: auto;
+  padding: 4px;
 }
 </style>
 </head>
+
 <body>
-<header>
-  <h1>Fowler Range Admin</h1>
-</header>
 
-<div class="container">
-  <div class="card">
-    <h2>System Status</h2>
-    <button class="primary" onclick="refreshAll()">Refresh</button>
-    <button onclick="runBackupNow()">Run Backup Now</button>
-    <div id="status" class="status"></div>
-  </div>
+<h1>Fowler Range Admin</h1>
 
-  <div class="card">
-    <h2>Currently Checked In</h2>
-    <p>Click a member number to force checkout that member.</p>
-    <div id="activeUsers">Loading...</div>
-  </div>
+<div id="status" class="status">Loading...</div>
 
-  <div class="card">
-    <h2>Force Checkout by Member ID</h2>
-    <input id="forceMemberId" inputmode="numeric" placeholder="Member ID">
-    <button class="danger" onclick="forceCheckoutManual()">Force Checkout</button>
-  </div>
+<div class="card">
+  <h2>Active Users</h2>
+  <button onclick="loadActive()">Refresh Active Users</button>
+  <div id="activeUsers"></div>
+</div>
 
-  <div class="card">
-    <h2>Clear All Active Sessions</h2>
-    <p>This will check out every currently active member. Use only if the system is stuck.</p>
-    <button class="danger" onclick="clearAllActive()">Clear All Active</button>
-  </div>
+<div class="card">
+  <h2>Force Checkout</h2>
+  <input id="forceMember" placeholder="Member ID" inputmode="numeric">
+  <button onclick="forceCheckoutManual()">Force Checkout</button>
+</div>
 
-  <div class="card">
-    <h2>Recent Logs</h2>
-    <button onclick="loadLogs()">Refresh Logs</button>
-    <div class="tableWrap" id="logs">Loading...</div>
-  </div>
+<div class="card">
+  <h2>Clear All Active Sessions</h2>
+  <button onclick="clearStuck()">Clear All Active Users</button>
+</div>
+
+<div class="card">
+  <h2>Backup</h2>
+  <button onclick="backupNow()">Run Backup Now</button>
+</div>
+
+<div class="card">
+  <h2>Recent Logs</h2>
+  <button onclick="loadLogs()">Refresh Logs</button>
+  <div id="logs"></div>
 </div>
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbxUO8fZMO3ziCCVJFza0_Pd1xVVZyVhNMiSd-omSAO_zvgWHe3SQIiD4r_Jun7TKA5q/exec";
 const API_KEY = "950218067144772919";
 
-function setStatus(message, type){
-  const el = document.getElementById("status");
-  el.className = "status " + (type || "");
-  el.innerText = message;
+function setStatus(msg, ok=true){
+  const s = document.getElementById("status");
+  s.innerText = msg;
+  s.className = "status " + (ok ? "good" : "bad");
 }
 
-function apiCall(action, params, callback){
-  const cbName = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+function jsonp(action, params, callback){
+  const cbName = "cb_" + Math.floor(Math.random() * 1000000000);
 
   window[cbName] = function(data){
     delete window[cbName];
-    if (script.parentNode) script.parentNode.removeChild(script);
+    script.remove();
     callback(data);
   };
 
-  let url = API + "?action=" + encodeURIComponent(action) +
+  let url = API +
+    "?action=" + encodeURIComponent(action) +
     "&key=" + encodeURIComponent(API_KEY) +
-    "&cb=" + encodeURIComponent(cbName);
+    "&cb=" + cbName;
 
-  if (params) {
-    Object.keys(params).forEach(k => {
-      url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
-    });
-  }
+  Object.keys(params || {}).forEach(k => {
+    url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+  });
 
   const script = document.createElement("script");
   script.onerror = function(){
-    setStatus("Request failed", "bad");
+    setStatus("Request failed", false);
     delete window[cbName];
+    script.remove();
   };
+
   script.src = url;
   document.body.appendChild(script);
 }
 
-function refreshAll(){
-  setStatus("Refreshing...", "warn");
-  loadActive();
-  loadLogs();
-}
-
 function loadActive(){
-  apiCall("admin_active", {}, function(data){
+  setStatus("Loading active users...");
+
+  jsonp("adminActive", {}, function(data){
     const div = document.getElementById("activeUsers");
     div.innerHTML = "";
 
-    if (!data || data.length === 0) {
-      div.innerHTML = "<p>No active users.</p>";
-      setStatus("Ready", "good");
+    if(!Array.isArray(data) || data.length === 0){
+      div.innerHTML = "<p>No active users</p>";
+      setStatus("Loaded. No active users.");
       return;
     }
 
-    data.forEach(memberId => {
-      const btn = document.createElement("button");
-      btn.className = "userButton";
-      btn.innerText = memberId;
-      btn.onclick = function(){
-        if (confirm("Force checkout member " + memberId + "?")) {
-          forceCheckout(memberId);
-        }
+    data.forEach(id => {
+      const b = document.createElement("button");
+      b.innerText = "Checkout " + id;
+      b.onclick = function(){
+        forceCheckout(id);
       };
-      div.appendChild(btn);
+      div.appendChild(b);
     });
 
-    setStatus("Ready", "good");
+    setStatus("Active users loaded.");
   });
 }
 
 function forceCheckoutManual(){
-  const memberId = document.getElementById("forceMemberId").value.trim();
-  if (!memberId) {
-    setStatus("Enter a member ID", "bad");
+  const id = document.getElementById("forceMember").value.trim();
+
+  if(!id){
+    setStatus("Enter a member ID", false);
     return;
   }
 
-  if (!confirm("Force checkout member " + memberId + "?")) return;
-  forceCheckout(memberId);
+  forceCheckout(id);
 }
 
-function forceCheckout(memberId){
-  setStatus("Checking out " + memberId + "...", "warn");
-  apiCall("admin_force_checkout", { memberId: memberId }, function(data){
-    if (data && data.success) {
-      setStatus("Member " + memberId + " checked out", "good");
-      document.getElementById("forceMemberId").value = "";
-      refreshAll();
+function forceCheckout(id){
+  if(!confirm("Force checkout member " + id + "?")) return;
+
+  setStatus("Checking out " + id + "...");
+
+  jsonp("adminForceCheckout", { memberId: id }, function(data){
+    if(data && data.success){
+      setStatus("Member " + id + " checked out.");
+      loadActive();
+      loadLogs();
     } else {
-      setStatus((data && data.error) ? data.error : "Force checkout failed", "bad");
+      setStatus((data && data.error) ? data.error : "Force checkout failed", false);
     }
   });
 }
 
-function clearAllActive(){
-  if (!confirm("This will check out ALL currently active members. Continue?")) return;
+function clearStuck(){
+  if(!confirm("Clear/check out ALL active users?")) return;
 
-  setStatus("Clearing active sessions...", "warn");
-  apiCall("admin_clear_stuck", {}, function(data){
-    if (data && data.success) {
-      setStatus("Cleared " + data.cleared + " active session(s)", "good");
-      refreshAll();
+  setStatus("Clearing active sessions...");
+
+  jsonp("adminClearStuck", {}, function(data){
+    if(data && data.success){
+      setStatus("Cleared " + data.cleared + " active session(s).");
+      loadActive();
+      loadLogs();
     } else {
-      setStatus("Clear active sessions failed", "bad");
+      setStatus("Clear failed", false);
     }
   });
 }
 
-function runBackupNow(){
-  setStatus("Running backup...", "warn");
-  apiCall("admin_backup_now", {}, function(data){
-    if (data && data.success) {
-      setStatus("Backup created: " + data.name, "good");
+function backupNow(){
+  setStatus("Running backup...");
+
+  jsonp("adminBackupNow", {}, function(data){
+    if(data && data.success){
+      setStatus("Backup completed.");
     } else {
-      setStatus("Backup failed", "bad");
+      setStatus("Backup failed", false);
     }
   });
 }
 
 function loadLogs(){
-  apiCall("admin_logs", { limit: 100 }, function(data){
-    const div = document.getElementById("logs");
+  setStatus("Loading logs...");
 
-    if (!data || !data.headers || data.headers.length === 0) {
-      div.innerHTML = "<p>No logs found.</p>";
+  jsonp("adminLogs", {}, function(data){
+    const div = document.getElementById("logs");
+    div.innerHTML = "";
+
+    if(!Array.isArray(data) || data.length === 0){
+      div.innerHTML = "<p>No logs found</p>";
+      setStatus("Logs loaded.");
       return;
     }
 
-    let html = "<table><thead><tr>";
-    data.headers.forEach(h => html += "<th>" + escapeHtml(h) + "</th>");
-    html += "</tr></thead><tbody>";
+    const table = document.createElement("table");
 
-    data.rows.forEach(row => {
-      html += "<tr>";
-      row.forEach(cell => html += "<td>" + escapeHtml(formatCell(cell)) + "</td>");
-      html += "</tr>";
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+
+      row.forEach(cell => {
+        const td = document.createElement("td");
+        td.innerText = cell;
+        tr.appendChild(td);
+      });
+
+      table.appendChild(tr);
     });
 
-    html += "</tbody></table>";
-    div.innerHTML = html;
+    div.appendChild(table);
+    setStatus("Logs loaded.");
   });
 }
 
-function formatCell(value){
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-function escapeHtml(value){
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 window.onload = function(){
-  refreshAll();
-  setInterval(loadActive, 10000);
+  loadActive();
+  loadLogs();
 };
 </script>
+
 </body>
 </html>
