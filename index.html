@@ -14,6 +14,7 @@ input { font-size: 22px; padding: 10px; width: 250px; text-align: center; }
 #queueStatus { position: fixed; bottom: 25px; right: 10px; font-size: 13px; color: #555; }
 .spinner { border: 6px solid #eee; border-top: 6px solid #333; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
+.noticeBox { max-width: 760px; font-size: 22px; line-height: 1.45; white-space: pre-wrap; margin: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; text-align: left; }
 </style>
 </head>
 <body>
@@ -24,6 +25,13 @@ input { font-size: 22px; padding: 10px; width: 250px; text-align: center; }
   <h1>Fowler Range</h1>
   <button onclick="startCheckIn()">Check In</button>
   <button onclick="startCheckOut()">Check Out</button>
+</div>
+
+<div id="messageScreen" class="screen">
+  <img src="Logo.jpeg" style="max-width:150px;">
+  <h2>Notice</h2>
+  <div id="messageText" class="noticeBox"></div>
+  <button onclick="continueAfterMessage()">OK</button>
 </div>
 
 <div id="member" class="screen">
@@ -60,8 +68,13 @@ input { font-size: 22px; padding: 10px; width: 250px; text-align: center; }
 <div id="timer"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbxUO8fZMO3ziCCVJFza0_Pd1xVVZyVhNMiSd-omSAO_zvgWHe3SQIiD4r_Jun7TKA5q/exec";
-const API_KEY = "950218067144772919";
+const API = "https://script.google.com/macros/s/AKfycbyvqHPcOLMC-cKoU6cUKed6rs1YNcizbEy6MkJWACEqrDu6oyprDBjPjl20_EwtfohT/exec";
+const API_KEY = "95021mention";
+
+// Slow Wi-Fi handling. If a call takes longer than this, treat it like offline.
+const FAST_TIMEOUT_MS = 1800;
+const MEMBER_TIMEOUT_MS = 3000;
+const QUEUE_RETRY_MS = 15000;
 
 let membersList = [];
 let activeUsers = [];
@@ -69,18 +82,30 @@ let memberId = "";
 let selectedPositions = [];
 let submitting = false;
 let checkingOut = false;
+let offlineMode = false;
 
 window.onload = function(){
   buildPositions();
-  loadMembers();
   loadCachedMembers();
+  loadMembers();
   syncQueue();
   resetTimer();
   updateQueueStatus();
 };
 
 window.addEventListener("online", syncQueue);
-setInterval(syncQueue, 10000);
+setInterval(syncQueue, QUEUE_RETRY_MS);
+
+function fetchWithTimeout(url, timeoutMs){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
+
+function markOfflineMode(on){
+  offlineMode = on;
+  updateQueueStatus();
+}
 
 function showLoading(){
   document.getElementById("loading").innerHTML = `<div style="font-size:22px; margin-bottom:15px;">Please wait...</div><div class="spinner"></div>`;
@@ -103,29 +128,35 @@ function setStatus(msg){ document.getElementById("status").innerText = msg; }
 function loadCachedMembers(){
   try {
     const cached = JSON.parse(localStorage.getItem("membersCache") || "[]");
-    if (cached.length && !membersList.length) membersList = cached.map(String);
+    if (cached.length) membersList = cached.map(String);
   } catch(e) {}
 }
 
 function loadMembers(){
-  fetch(API + "?key=" + API_KEY + "&action=members")
+  return fetchWithTimeout(API + "?key=" + API_KEY + "&action=members", MEMBER_TIMEOUT_MS)
   .then(r=>r.json())
   .then(d=>{
     membersList = d.map(x=>String(x));
     localStorage.setItem("membersCache", JSON.stringify(membersList));
+    markOfflineMode(false);
   })
-  .catch(()=> loadCachedMembers());
+  .catch(()=>{
+    loadCachedMembers();
+    markOfflineMode(true);
+  });
 }
 
 function loadActiveUsers(){
-  return fetch(API + "?key=" + API_KEY + "&action=active")
+  return fetchWithTimeout(API + "?key=" + API_KEY + "&action=active", FAST_TIMEOUT_MS)
   .then(r=>r.json())
   .then(d=>{
     activeUsers = d.map(x=>String(x));
     localStorage.setItem("activeCache", JSON.stringify(activeUsers));
+    markOfflineMode(false);
   })
   .catch(()=>{
     activeUsers = JSON.parse(localStorage.getItem("activeCache") || "[]").map(String);
+    markOfflineMode(true);
   });
 }
 
@@ -171,7 +202,37 @@ function buildSupplies(){
   }
 }
 
-function startCheckIn(){ memberId=""; selectedPositions=[]; showScreen("member"); }
+function startCheckIn(){
+  memberId="";
+  selectedPositions=[];
+  submitting=false;
+  checkForMessage();
+}
+
+function checkForMessage(){
+  showLoading();
+  fetchWithTimeout("message.txt?ts=" + Date.now(), 1200)
+    .then(r => {
+      if(!r.ok) throw new Error("No message");
+      return r.text();
+    })
+    .then(text => {
+      hideLoading();
+      text = text.trim();
+      if(text){
+        document.getElementById("messageText").innerText = text;
+        showScreen("messageScreen");
+      } else {
+        showScreen("member");
+      }
+    })
+    .catch(() => {
+      hideLoading();
+      showScreen("member");
+    });
+}
+
+function continueAfterMessage(){ showScreen("member"); }
 
 async function goPositions(){
   let val=document.getElementById("memberInput").value.trim();
@@ -210,16 +271,29 @@ function buildSubmitUrl(item){
     "&positions=" + encodeURIComponent(item.positions || "") +
     "&supplies=" + encodeURIComponent(item.supplies || "") +
     "&type=" + encodeURIComponent(item.type) +
-    "&queued=" + encodeURIComponent(item.queued || "");
+    "&queued=" + encodeURIComponent(item.queued || "") +
+    "&clientId=" + encodeURIComponent(item.clientId || "");
 }
 
 function getQueue(){ return JSON.parse(localStorage.getItem("offlineQueue") || "[]"); }
 function saveQueue(q){ localStorage.setItem("offlineQueue", JSON.stringify(q)); updateQueueStatus(); }
-function queueSubmission(item){ const q=getQueue(); q.push(item); saveQueue(q); }
-function updateQueueStatus(){ const n=getQueue().length; document.getElementById("queueStatus").innerText = n ? ("Pending uploads: "+n) : ""; }
+function queueSubmission(item){
+  const q=getQueue();
+  item.clientId = item.clientId || (Date.now() + "_" + Math.random().toString(16).slice(2));
+  q.push(item);
+  saveQueue(q);
+}
+function updateQueueStatus(){
+  const n=getQueue().length;
+  if(offlineMode){
+    document.getElementById("queueStatus").innerText = n ? ("Offline mode - pending uploads: "+n) : "Offline mode";
+  } else {
+    document.getElementById("queueStatus").innerText = n ? ("Pending uploads: "+n) : "";
+  }
+}
 
-function sendSubmission(item){
-  return fetch(buildSubmitUrl(item)).then(r=>r.json()).then(res=>{
+function sendSubmission(item, timeoutMs){
+  return fetchWithTimeout(buildSubmitUrl(item), timeoutMs || FAST_TIMEOUT_MS).then(r=>r.json()).then(res=>{
     if(res.error) throw new Error(res.error);
     return res;
   });
@@ -229,9 +303,12 @@ function syncQueue(){
   const q = getQueue();
   if(!q.length || !navigator.onLine) { updateQueueStatus(); return; }
   const item = q[0];
-  sendSubmission(item).then(()=>{
-    q.shift(); saveQueue(q); syncQueue();
-  }).catch(()=> updateQueueStatus());
+  sendSubmission(item, 5000).then(()=>{
+    q.shift(); saveQueue(q); markOfflineMode(false); syncQueue();
+  }).catch(()=> {
+    markOfflineMode(true);
+    updateQueueStatus();
+  });
 }
 
 function submitCheckIn(){
@@ -246,20 +323,23 @@ function submitCheckIn(){
     positions: selectedPositions.join(","),
     supplies: supplies.join(","),
     type: "IN",
-    queued: ""
+    queued: "",
+    clientId: Date.now() + "_" + Math.random().toString(16).slice(2)
   };
 
-  sendSubmission(item).then(()=>{
+  sendSubmission(item, FAST_TIMEOUT_MS).then(()=>{
     showSuccess("Successfully Checked In");
     setTimeout(()=>location.reload(), 2000);
   }).catch(err=>{
-    if(!navigator.onLine || String(err.message).includes("Failed to fetch")){
+    const msg = String(err.message || "");
+    if(!navigator.onLine || msg.includes("Failed to fetch") || msg.includes("aborted") || msg.includes("AbortError") || err.name === "AbortError"){
       item.queued = new Date().toISOString();
       queueSubmission(item);
+      markOfflineMode(true);
       showSuccess("Saved. Will upload when online.");
       setTimeout(()=>location.reload(), 2500);
     } else {
-      submitting=false; hideLoading(); setStatus(err.message || "Error");
+      submitting=false; hideLoading(); setStatus(msg || "Error");
     }
   });
 }
@@ -271,7 +351,7 @@ function startCheckOut(){
     let div = document.getElementById("activeUsers");
     div.innerHTML = "";
     if(activeUsers.length === 0){
-      div.innerHTML = "<p>No active users</p>";
+      div.innerHTML = offlineMode ? "<p>No active users found in cached list</p>" : "<p>No active users</p>";
       showScreen("checkout"); setTimeout(()=>location.reload(),3000); return;
     }
     activeUsers.forEach(id=>{
@@ -288,18 +368,28 @@ function checkout(id){
   if(checkingOut) return;
   checkingOut = true;
   showLoading();
-  const item = { memberId: String(id), positions: "", supplies: "", type: "OUT", queued: "" };
-  sendSubmission(item).then(()=>{
+  const item = {
+    memberId: String(id),
+    positions: "",
+    supplies: "",
+    type: "OUT",
+    queued: "",
+    clientId: Date.now() + "_" + Math.random().toString(16).slice(2)
+  };
+
+  sendSubmission(item, FAST_TIMEOUT_MS).then(()=>{
     showSuccess("Successfully Checked Out");
     setTimeout(()=>location.reload(), 2000);
   }).catch(err=>{
-    if(!navigator.onLine || String(err.message).includes("Failed to fetch")){
+    const msg = String(err.message || "");
+    if(!navigator.onLine || msg.includes("Failed to fetch") || msg.includes("aborted") || msg.includes("AbortError") || err.name === "AbortError"){
       item.queued = new Date().toISOString();
       queueSubmission(item);
+      markOfflineMode(true);
       showSuccess("Saved. Will upload when online.");
       setTimeout(()=>location.reload(), 2500);
     } else {
-      checkingOut = false; hideLoading(); setStatus(err.message || "Error");
+      checkingOut = false; hideLoading(); setStatus(msg || "Error");
     }
   });
 }
