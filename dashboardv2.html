@@ -1,1 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+  font-family: Arial;
+  margin: 0;
+  text-align: center;
+  background: #f6f6f6;
+}
 
+.container {
+  padding: 18px;
+}
+
+.rangeSection {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 18px auto;
+  max-width: 1000px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.card {
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 16px 22px;
+  min-width: 150px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+.card .label {
+  font-size: 14px;
+  color: #666;
+}
+
+.card .value {
+  font-size: 34px;
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+button {
+  margin: 5px;
+  padding: 10px 14px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: white;
+}
+
+button.activeRange {
+  background: #333;
+  color: white;
+}
+
+.activeList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.activeUser {
+  background: #f3f3f3;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.positionRows {
+  margin: 10px auto;
+}
+
+.positionRowTitle {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.positionRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.posBox {
+  min-width: 46px;
+  height: 42px;
+  margin: 4px;
+  line-height: 42px;
+  color: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.green { background: #4CAF50; }
+.red { background: #d9534f; }
+
+.chartWrap {
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 14px;
+  margin: 16px auto;
+  max-width: 900px;
+}
+
+canvas {
+  max-width: 100%;
+  margin-top: 10px;
+}
+
+#statusBar {
+  color: #555;
+  font-size: 13px;
+  margin-top: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>Range Dashboard</h1>
+
+  <div>
+    <button id="btn1" onclick="setRange(1)">Today</button>
+    <button id="btn7" onclick="setRange(7)">7 Days</button>
+    <button id="btn30" onclick="setRange(30)">30 Days</button>
+    <button id="btn365" onclick="setRange(365)">1 Year</button>
+  </div>
+
+  <div id="ranges"></div>
+
+  <div id="statusBar"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbwigST0kX--57rb7G2FbVUstB_tN6DEMhR9PUrxPE0Ll0OKt9-_V8mYOHod3iFIJ8NN/exec";
+const API_KEY = "950218067144772919";
+
+let currentRange = 1;
+let charts = {};
+let rotateRanges = [1,7,30,365];
+let rotateIndex = 0;
+
+window.onload = function(){
+  setRange(1);
+  setInterval(loadData, 10000);
+  setInterval(autoRotate, 60000);
+};
+
+function autoRotate(){
+  rotateIndex = (rotateIndex + 1) % rotateRanges.length;
+  setRange(rotateRanges[rotateIndex]);
+}
+
+function setRange(days){
+  currentRange = days;
+
+  document.querySelectorAll("button").forEach(b => b.classList.remove("activeRange"));
+
+  const btn = document.getElementById("btn" + days);
+  if(btn) btn.classList.add("activeRange");
+
+  loadData();
+}
+
+function loadData(){
+  const cb = "cb_" + Math.floor(Math.random() * 1000000000);
+
+  window[cb] = function(data){
+    delete window[cb];
+    render(data);
+  };
+
+  const s = document.createElement("script");
+
+  s.src =
+    API +
+    "?action=dashboard" +
+    "&days=" + currentRange +
+    "&key=" + encodeURIComponent(API_KEY) +
+    "&cb=" + cb;
+
+  document.body.appendChild(s);
+
+  setTimeout(() => {
+    try { s.remove(); } catch(e) {}
+  }, 15000);
+}
+
+function render(data){
+  const container = document.getElementById("ranges");
+  container.innerHTML = "";
+
+  const ranges = data.ranges || [];
+
+  if(ranges.length === 0){
+    container.innerHTML = "<p>No activity for this time period.</p>";
+    document.getElementById("statusBar").innerText =
+      "Last updated: " + new Date().toLocaleTimeString();
+    return;
+  }
+
+  ranges.forEach(r => {
+    const section = document.createElement("div");
+    section.className = "rangeSection";
+
+    const title = document.createElement("h2");
+    title.innerText = r.name;
+    section.appendChild(title);
+
+    const cards = document.createElement("div");
+    cards.className = "cards";
+
+    cards.appendChild(makeCard("Check-ins", r.total || 0));
+    cards.appendChild(makeCard("Check-outs", r.checkoutTotal || 0));
+    cards.appendChild(makeCard("Active Now", (r.active || []).length));
+
+    if(r.rows && r.rows.length > 0){
+      const totalPositions = countPositions(r.rows);
+      const usedPositions = (r.positions || []).length;
+      cards.appendChild(makeCard("Free Positions", totalPositions - usedPositions));
+    }
+
+    section.appendChild(cards);
+
+    const activeTitle = document.createElement("h3");
+    activeTitle.innerText = "Active Users";
+    section.appendChild(activeTitle);
+
+    const activeList = document.createElement("div");
+    activeList.className = "activeList";
+
+    if(!r.active || r.active.length === 0){
+      activeList.innerHTML = "<p>No active users</p>";
+    } else {
+      r.active.forEach(id => {
+        const d = document.createElement("div");
+        d.className = "activeUser";
+        d.innerText = id;
+        activeList.appendChild(d);
+      });
+    }
+
+    section.appendChild(activeList);
+
+    if(r.rows && r.rows.length > 0){
+      const posTitle = document.createElement("h3");
+      posTitle.innerText = "Positions Live";
+      section.appendChild(posTitle);
+
+      section.appendChild(renderPositions(r.rows, r.positions || []));
+    }
+
+    const chartWrap = document.createElement("div");
+    chartWrap.className = "chartWrap";
+
+    const chartTitle = document.createElement("h3");
+    chartTitle.innerText = "Check-ins Over Time";
+    chartWrap.appendChild(chartTitle);
+
+    const canvas = document.createElement("canvas");
+    canvas.id = "chart_" + r.id;
+    chartWrap.appendChild(canvas);
+
+    section.appendChild(chartWrap);
+
+    container.appendChild(section);
+
+    renderChart(r.id, r.chart || []);
+  });
+
+  document.getElementById("statusBar").innerText =
+    "Last updated: " + new Date().toLocaleTimeString();
+}
+
+function makeCard(label, value){
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const l = document.createElement("div");
+  l.className = "label";
+  l.innerText = label;
+
+  const v = document.createElement("div");
+  v.className = "value";
+  v.innerText = value;
+
+  card.appendChild(l);
+  card.appendChild(v);
+
+  return card;
+}
+
+function countPositions(rows){
+  return rows.reduce((sum, r) => sum + Number(r.count || 0), 0);
+}
+
+function renderPositions(rows, activePositions){
+  const wrap = document.createElement("div");
+  wrap.className = "positionRows";
+
+  rows.forEach(row => {
+    const title = document.createElement("div");
+    title.className = "positionRowTitle";
+    title.innerText = row.label;
+    wrap.appendChild(title);
+
+    const line = document.createElement("div");
+    line.className = "positionRow";
+
+    for(let i = 0; i < row.count; i++){
+      const n = row.start + i;
+      const value = row.label + "-" + n;
+
+      const box = document.createElement("div");
+      box.className = "posBox " + (activePositions.includes(value) ? "red" : "green");
+      box.innerText = n;
+
+      line.appendChild(box);
+    }
+
+    wrap.appendChild(line);
+  });
+
+  return wrap;
+}
+
+function renderChart(id, data){
+  const ctx = document.getElementById("chart_" + id).getContext("2d");
+
+  if(charts[id]){
+    charts[id].destroy();
+  }
+
+  charts[id] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: data.map(d => d.date),
+      datasets: [{
+        label: "Check-ins",
+        data: data.map(d => d.count)
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          display: true
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            precision: 0
+          }
+        }
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>
