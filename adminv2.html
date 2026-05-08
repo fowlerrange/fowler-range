@@ -1,1 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
+<style>
+body {
+  font-family: Arial;
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  background: #f6f6f6;
+}
+
+.card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 15px;
+  margin: 15px auto;
+  max-width: 900px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+button {
+  font-size: 16px;
+  padding: 10px 14px;
+  margin: 6px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: white;
+}
+
+.status {
+  font-weight: bold;
+  margin: 15px;
+}
+
+.good { color: green; }
+.bad { color: red; }
+
+.rangeBlock {
+  border-top: 1px solid #ddd;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.activeUser {
+  display: inline-block;
+  background: #f1f1f1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 5px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  background: white;
+}
+
+td, th {
+  border: 1px solid #ccc;
+  padding: 5px;
+}
+
+.logWrap {
+  overflow-x: auto;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Range Admin</h1>
+
+<div id="status" class="status">Loading...</div>
+
+<div class="card">
+  <h2>Active Users by Range</h2>
+  <button onclick="loadActive()">Refresh Active Users</button>
+  <div id="activeUsers"></div>
+</div>
+
+<div class="card">
+  <h2>Clear Active Sessions</h2>
+  <div id="clearButtons"></div>
+  <button onclick="clearAll()">Clear ALL Active Sessions</button>
+</div>
+
+<div class="card">
+  <h2>Backup</h2>
+  <button onclick="backupNow()">Run Backup Now</button>
+</div>
+
+<div class="card">
+  <h2>Recent Logs</h2>
+  <button onclick="loadLogs()">Refresh Logs</button>
+  <div id="logs" class="logWrap"></div>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbwigST0kX--57rb7G2FbVUstB_tN6DEMhR9PUrxPE0Ll0OKt9-_V8mYOHod3iFIJ8NN/exec";
+const API_KEY = "950218067144772919";
+
+let lastActiveData = {};
+
+function setStatus(msg, ok=true){
+  const s = document.getElementById("status");
+  s.innerText = msg;
+  s.className = "status " + (ok ? "good" : "bad");
+}
+
+function jsonp(action, params, callback){
+  const cbName = "cb_" + Math.floor(Math.random() * 1000000000);
+
+  window[cbName] = function(data){
+    delete window[cbName];
+    try { script.remove(); } catch(e) {}
+    callback(data);
+  };
+
+  let url =
+    API +
+    "?action=" + encodeURIComponent(action) +
+    "&key=" + encodeURIComponent(API_KEY) +
+    "&cb=" + cbName;
+
+  Object.keys(params || {}).forEach(k => {
+    url +=
+      "&" +
+      encodeURIComponent(k) +
+      "=" +
+      encodeURIComponent(params[k]);
+  });
+
+  const script = document.createElement("script");
+
+  script.onerror = function(){
+    setStatus("Request failed", false);
+    delete window[cbName];
+    try { script.remove(); } catch(e) {}
+  };
+
+  script.src = url;
+  document.body.appendChild(script);
+}
+
+function loadActive(){
+  setStatus("Loading active users...");
+
+  jsonp("adminActive", {}, function(data){
+    lastActiveData = data || {};
+    renderActive(data || {});
+    renderClearButtons(data || {});
+    setStatus("Active users loaded.");
+  });
+}
+
+function renderActive(data){
+  const div = document.getElementById("activeUsers");
+  div.innerHTML = "";
+
+  const ranges = Object.values(data || {});
+  const activeRanges = ranges.filter(r => r.active && r.active.length > 0);
+
+  if(activeRanges.length === 0){
+    div.innerHTML = "<p>No active users</p>";
+    return;
+  }
+
+  activeRanges.forEach(range => {
+    const block = document.createElement("div");
+    block.className = "rangeBlock";
+
+    const h = document.createElement("h3");
+    h.innerText = range.name;
+    block.appendChild(h);
+
+    range.active.forEach(user => {
+      const span = document.createElement("span");
+      span.className = "activeUser";
+
+      const label = document.createElement("span");
+      label.innerText =
+        user.member +
+        (user.positions ? " (" + user.positions + ")" : "");
+
+      const btn = document.createElement("button");
+      btn.innerText = "Force Checkout";
+      btn.onclick = function(){
+        forceCheckout(user.member);
+      };
+
+      span.appendChild(label);
+      span.appendChild(btn);
+      block.appendChild(span);
+    });
+
+    div.appendChild(block);
+  });
+}
+
+function renderClearButtons(data){
+  const div = document.getElementById("clearButtons");
+  div.innerHTML = "";
+
+  Object.values(data || {}).forEach(range => {
+    const count = range.active ? range.active.length : 0;
+
+    if(count === 0) return;
+
+    const btn = document.createElement("button");
+    btn.innerText = "Clear " + range.name + " (" + count + ")";
+    btn.onclick = function(){
+      clearRange(range.id, range.name);
+    };
+
+    div.appendChild(btn);
+  });
+}
+
+function forceCheckout(memberId){
+  if(!confirm("Force checkout member " + memberId + "?")) return;
+
+  setStatus("Checking out " + memberId + "...");
+
+  jsonp("adminForceCheckout", { memberId: memberId }, function(data){
+    if(data && data.success){
+      setStatus("Member " + memberId + " checked out.");
+      loadActive();
+      loadLogs();
+    } else {
+      setStatus((data && data.error) ? data.error : "Force checkout failed", false);
+    }
+  });
+}
+
+function clearRange(rangeId, rangeName){
+  if(!confirm("Clear/check out all active users from " + rangeName + "?")) return;
+
+  setStatus("Clearing " + rangeName + "...");
+
+  jsonp("adminClearRange", { range: rangeId }, function(data){
+    if(data && data.success){
+      setStatus("Cleared " + data.cleared + " active session(s) from " + rangeName + ".");
+      loadActive();
+      loadLogs();
+    } else {
+      setStatus("Clear failed", false);
+    }
+  });
+}
+
+function clearAll(){
+  if(!confirm("Clear/check out ALL active users from ALL ranges?")) return;
+
+  setStatus("Clearing all active sessions...");
+
+  jsonp("adminClearAll", {}, function(data){
+    if(data && data.success){
+      setStatus("Cleared " + data.cleared + " active session(s).");
+      loadActive();
+      loadLogs();
+    } else {
+      setStatus("Clear all failed", false);
+    }
+  });
+}
+
+function backupNow(){
+  setStatus("Running backup...");
+
+  jsonp("adminBackupNow", {}, function(data){
+    if(data && data.success){
+      setStatus("Backup completed.");
+    } else {
+      setStatus("Backup failed", false);
+    }
+  });
+}
+
+function loadLogs(){
+  setStatus("Loading logs...");
+
+  jsonp("adminLogs", {}, function(data){
+    const div = document.getElementById("logs");
+    div.innerHTML = "";
+
+    if(!Array.isArray(data) || data.length === 0){
+      div.innerHTML = "<p>No logs found</p>";
+      setStatus("Logs loaded.");
+      return;
+    }
+
+    const table = document.createElement("table");
+
+    data.forEach((row, index) => {
+      const tr = document.createElement("tr");
+
+      row.forEach(cell => {
+        const td = document.createElement(index === 0 ? "th" : "td");
+        td.innerText = cell;
+        tr.appendChild(td);
+      });
+
+      table.appendChild(tr);
+    });
+
+    div.appendChild(table);
+    setStatus("Logs loaded.");
+  });
+}
+
+window.onload = function(){
+  loadActive();
+  loadLogs();
+};
+
+setInterval(loadActive, 15000);
+</script>
+
+</body>
+</html>
