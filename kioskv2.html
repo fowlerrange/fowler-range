@@ -28,7 +28,7 @@ input { font-size: 22px; padding: 10px; width: 250px; text-align: center; }
 
 <div id="home" class="screen" style="display:flex;">
   <img src="Logo.jpeg" style="max-width:150px; margin-bottom:20px;">
-  <h1 id="rangeTitle">Range Kiosk</h1>
+  <h1 id="rangeTitle" style="color:white;">Range Kiosk</h1>
   <button onclick="startCheckIn()">Check In</button>
   <button onclick="startCheckOut()">Check Out</button>
 </div>
@@ -193,6 +193,7 @@ function applyRangeConfig(){
 
   currentRange = config[currentRangeId];
   document.getElementById("rangeTitle").innerText = currentRange.name;
+  document.getElementById("rangeTitle").style.color = "black";
   buildPositions();
   showScreen("home");
 }
