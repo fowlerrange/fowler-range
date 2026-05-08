@@ -107,19 +107,6 @@ button.activeRange {
 .green { background: #4CAF50; }
 .red { background: #d9534f; }
 
-.chartWrap {
-  background: #fafafa;
-  border-radius: 10px;
-  padding: 14px;
-  margin: 16px auto;
-  max-width: 900px;
-}
-
-canvas {
-  max-width: 100%;
-  margin-top: 10px;
-}
-
 #statusBar {
   color: #555;
   font-size: 13px;
@@ -145,20 +132,17 @@ canvas {
   <div id="statusBar"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
 const API = "https://script.google.com/macros/s/AKfycbwigST0kX--57rb7G2FbVUstB_tN6DEMhR9PUrxPE0Ll0OKt9-_V8mYOHod3iFIJ8NN/exec";
 const API_KEY = "950218067144772919";
 
 let currentRange = 1;
-let charts = {};
 let rotateRanges = [1,7,30,365];
 let rotateIndex = 0;
 
 window.onload = function(){
   setRange(1);
-  setInterval(loadData, 10000);
+  setInterval(loadData, 45000);
   setInterval(autoRotate, 60000);
 };
 
@@ -266,22 +250,7 @@ function render(data){
       section.appendChild(renderPositions(r.rows, r.positions || []));
     }
 
-    const chartWrap = document.createElement("div");
-    chartWrap.className = "chartWrap";
-
-    const chartTitle = document.createElement("h3");
-    chartTitle.innerText = "Check-ins Over Time";
-    chartWrap.appendChild(chartTitle);
-
-    const canvas = document.createElement("canvas");
-    canvas.id = "chart_" + r.id;
-    chartWrap.appendChild(canvas);
-
-    section.appendChild(chartWrap);
-
     container.appendChild(section);
-
-    renderChart(r.id, r.chart || []);
   });
 
   document.getElementById("statusBar").innerText =
@@ -338,40 +307,6 @@ function renderPositions(rows, activePositions){
   });
 
   return wrap;
-}
-
-function renderChart(id, data){
-  const ctx = document.getElementById("chart_" + id).getContext("2d");
-
-  if(charts[id]){
-    charts[id].destroy();
-  }
-
-  charts[id] = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: data.map(d => d.date),
-      datasets: [{
-        label: "Check-ins",
-        data: data.map(d => d.count)
-      }]
-    },
-    options: {
-      plugins: {
-        legend: {
-          display: true
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            precision: 0
-          }
-        }
-      }
-    }
-  });
 }
 </script>
 
