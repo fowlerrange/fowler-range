@@ -2117,18 +2117,13 @@ async function stampTextFields(
       ? currentRange.name
       : currentRangeId;
 
-  const initialsLocations =
-    fields.initials || [];
-
-  initialsLocations.forEach(location => {
-    drawTextAt(
-      pages,
-      location,
-      guest.initials,
-      10,
-      rgb
-    );
-  });
+  drawTextAtMany(
+    pages,
+    fields.initials || [],
+    guest.initials,
+    10,
+    rgb
+  );
 
   drawTextAt(
     pages,
@@ -2170,15 +2165,23 @@ async function stampTextFields(
     rgb
   );
 
-  drawTextAt(
-    pages,
-    fields.guestType,
-    guest.guestType === "minor"
-      ? "Minor"
-      : "Guest",
-    9,
-    rgb
-  );
+  if(guest.guestType === "minor"){
+    drawTextAt(
+      pages,
+      fields.guestTypeMinor,
+      "X",
+      10,
+      rgb
+    );
+  } else {
+    drawTextAt(
+      pages,
+      fields.guestTypeGuest,
+      "X",
+      10,
+      rgb
+    );
+  }
 
   drawTextAt(
     pages,
@@ -2206,14 +2209,6 @@ async function stampTextFields(
 
   drawTextAt(
     pages,
-    fields.memberSigningAs,
-    guest.memberSigningAs,
-    9,
-    rgb
-  );
-
-  drawTextAt(
-    pages,
     fields.memberDate,
     dateText,
     9,
@@ -2228,9 +2223,35 @@ async function stampTextFields(
     rgb
   );
 
-  drawTextAt(
+  if(guest.memberSigningAs === "parent"){
+    drawTextAt(
+      pages,
+      fields.memberSigningAsParent,
+      "X",
+      10,
+      rgb
+    );
+  } else if(guest.memberSigningAs === "guardian"){
+    drawTextAt(
+      pages,
+      fields.memberSigningAsGuardian,
+      "X",
+      10,
+      rgb
+    );
+  } else {
+    drawTextAt(
+      pages,
+      fields.memberSigningAsHost,
+      "X",
+      10,
+      rgb
+    );
+  }
+
+  drawTextAtMany(
     pages,
-    fields.witnessPrintedName,
+    fields.witnessPrintedNames || [],
     guest.witnessPrintedName,
     9,
     rgb
@@ -2244,7 +2265,7 @@ async function stampTextFields(
     rgb
   );
 }
-
+  
 function drawTextAt(
   pages,
   location,
@@ -2277,6 +2298,26 @@ function drawTextAt(
   );
 }
 
+  function drawTextAtMany(
+  pages,
+  locations,
+  text,
+  defaultSize,
+  rgb
+){
+  if(!Array.isArray(locations)) return;
+
+  locations.forEach(location => {
+    drawTextAt(
+      pages,
+      location,
+      text,
+      defaultSize,
+      rgb
+    );
+  });
+}
+  
 async function stampSignatures(
   document,
   pages,
@@ -2297,14 +2338,14 @@ async function stampSignatures(
     guest.memberSignature
   );
 
-  await drawSignatureAt(
+  await drawSignatureAtMany(
     document,
     pages,
-    fields.witnessSignature,
+    fields.witnessSignatures || [],
     guest.witnessSignature
   );
 }
-
+  
 async function drawSignatureAt(
   document,
   pages,
