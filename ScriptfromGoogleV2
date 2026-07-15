@@ -1,0 +1,626 @@
+const SHEET_NAME = "Checkins";
+const MEMBERS_SHEET = "Members";
+const API_KEY = "950218067144772919";
+
+// New Checkins headers:
+// Timestamp | Range | MemberID | Positions | Supplies | Action | SessionID | Queued | ClientID
+
+const RANGE_CONFIG = {
+  corsetti: {
+    id: "corsetti",
+    name: "Corsetti Range",
+    ammo: true,
+    rows: [
+      { label: "Position", start: 1, count: 5 }
+    ]
+  },
+
+  fowler: {
+    id: "fowler",
+    name: "Fowler Range",
+    ammo: true,
+    rows: [
+      { label: "25 Yards", start: 1, count: 9 },
+      { label: "50 Yards", start: 10, count: 8 },
+      { label: "100 Yards", start: 35, count: 8 }
+    ]
+  },
+
+  leveridge: {
+    id: "leveridge",
+    name: "Leveridge Range",
+    ammo: true,
+    rows: [
+      { label: "200", start: 1, count: 16 },
+      { label: "300", start: 1, count: 16 },
+      { label: "500", start: 1, count: 16 },
+      { label: "600", start: 1, count: 16 }
+    ]
+  },
+
+  archery: {
+    id: "archery",
+    name: "Archery & Primitive Skills",
+    ammo: false,
+    rows: []
+  },
+
+  procter: {
+    id: "procter",
+    name: "Procter Range",
+    ammo: true,
+    rows: [
+      { label: "Position", start: 1, count: 10 }
+    ]
+  },
+
+  stark: {
+    id: "stark",
+    name: "Stark Range",
+    ammo: false,
+    rows: []
+  },
+
+  swiss: {
+    id: "swiss",
+    name: "Swiss Range",
+    ammo: true,
+    rows: []
+  },
+
+  valade: {
+    id: "valade",
+    name: "Valade Clubhouse",
+    ammo: false,
+    rows: []
+  },
+
+  veterans: {
+    id: "veterans",
+    name: "Veterans Range",
+    ammo: true,
+    rows: []
+  }
+};
+
+// =========================
+// MAIN ROUTER
+// =========================
+function doGet(e) {
+  const action = e.parameter.action;
+
+  if (action === "config") return jsonResponse(getPublicConfig());
+
+  if (action === "members") return getMembers();
+
+  if (action === "active") {
+    return jsonResponse(getActiveArray(e.parameter.range || ""));
+  }
+
+  if (action === "memberStatus") {
+    return jsonResponse(getMemberStatus(e.parameter.memberId));
+  }
+
+  if (action === "submit") {
+  return handleSubmit(e);
+  }
+
+  if (action === "dashboard") {
+
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    const days = parseInt(e.parameter.days || "1", 10);
+    return jsonpOrJson(getDashboard(days), e.parameter.cb);
+  }
+
+  if (action === "adminActive") {
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    return jsonpOrJson(getActiveGroupedByRange(), e.parameter.cb);
+  }
+
+  if (action === "adminForceCheckout") {
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    return jsonpOrJson(adminForceCheckout(e.parameter.memberId), e.parameter.cb);
+  }
+
+  if (action === "adminClearRange") {
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    return jsonpOrJson(adminClearRange(e.parameter.range), e.parameter.cb);
+  }
+
+  if (action === "adminClearAll") {
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    return jsonpOrJson(adminClearAll(), e.parameter.cb);
+  }
+
+  if (action === "adminBackupNow") {
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    backupSheet();
+    return jsonpOrJson({ success: true }, e.parameter.cb);
+  }
+
+  if (action === "adminLogs") {
+    if (e.parameter.key !== API_KEY) {
+      return ContentService.createTextOutput("Unauthorized");
+    }
+
+    return jsonpOrJson(adminLogs(100), e.parameter.cb);
+  }
+
+  return ContentService.createTextOutput("Invalid");
+}
+
+// =========================
+// RESPONSE HELPERS
+// =========================
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonpOrJson(data, cb) {
+  if (cb) {
+    return ContentService
+      .createTextOutput(cb + "(" + JSON.stringify(data) + ")")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  return jsonResponse(data);
+}
+
+function getPublicConfig() {
+  return RANGE_CONFIG;
+}
+
+function getRangeName(rangeId) {
+  const r = RANGE_CONFIG[String(rangeId || "").toLowerCase()];
+  return r ? r.name : String(rangeId || "");
+}
+
+// =========================
+// MEMBERS
+// =========================
+function getMembers() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(MEMBERS_SHEET);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) return jsonResponse([]);
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+
+  const members = values
+    .map(r => String(r[0]).trim())
+    .filter(v => v !== "");
+
+  return jsonResponse(members);
+}
+
+// =========================
+// ACTIVE SESSION HELPERS
+// =========================
+function getOpenSessions() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  const sessions = {};
+
+  for (let i = 1; i < data.length; i++) {
+    const timestamp = data[i][0];
+    const range = String(data[i][1] || "").toLowerCase();
+    const member = String(data[i][2] || "").trim();
+    const positions = String(data[i][3] || "");
+    const action = data[i][5];
+    const session = data[i][6];
+
+    if (!session) continue;
+
+    if (!sessions[session]) {
+      sessions[session] = {
+        session,
+        timestamp,
+        range,
+        member,
+        positions,
+        open: false
+      };
+    }
+
+    if (action === "IN") {
+      sessions[session].open = true;
+      sessions[session].timestamp = timestamp;
+      sessions[session].range = range;
+      sessions[session].member = member;
+      sessions[session].positions = positions;
+    }
+
+    if (action === "OUT") {
+      sessions[session].open = false;
+    }
+  }
+
+  return Object.values(sessions).filter(s => s.open);
+}
+
+function getActiveArray(rangeId) {
+  const range = String(rangeId || "").toLowerCase();
+
+  return getOpenSessions()
+    .filter(s => !range || s.range === range)
+    .map(s => s.member);
+}
+
+function getActiveGroupedByRange() {
+  const grouped = {};
+
+  Object.keys(RANGE_CONFIG).forEach(id => {
+    grouped[id] = {
+      id,
+      name: RANGE_CONFIG[id].name,
+      active: []
+    };
+  });
+
+  getOpenSessions().forEach(s => {
+    if (!grouped[s.range]) {
+      grouped[s.range] = {
+        id: s.range,
+        name: getRangeName(s.range),
+        active: []
+      };
+    }
+
+    grouped[s.range].active.push({
+      member: s.member,
+      session: s.session,
+      positions: s.positions
+    });
+  });
+
+  return grouped;
+}
+
+function findOpenSessionForMember(memberId) {
+  memberId = String(memberId || "").trim();
+
+  return getOpenSessions().find(s => s.member === memberId) || null;
+}
+function getMemberStatus(memberId) {
+  const open = findOpenSessionForMember(memberId);
+
+  if (!open) {
+    return {
+      active: false
+    };
+  }
+
+  return {
+    active: true,
+    range: open.range,
+    rangeName: getRangeName(open.range),
+    member: open.member
+  };
+}
+// =========================
+// SUBMIT / CHECK-IN / CHECKOUT
+// =========================
+function handleSubmit(e) {
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+
+    const range = String(e.parameter.range || "").toLowerCase();
+    const memberId = String(e.parameter.memberId || "").trim();
+    const positions = e.parameter.positions || "";
+    const supplies = e.parameter.supplies || "";
+    const action = e.parameter.type;
+    const queued = e.parameter.queued || "";
+    const clientId = e.parameter.clientId || "";
+
+    if (!memberId || !action) {
+      return jsonResponse({
+        success: false,
+        error: "Missing data"
+      });
+    }
+
+    if (clientId && clientSubmissionExists(clientId)) {
+      return jsonResponse({
+        success: true,
+        duplicate: true
+      });
+    }
+
+    if (action === "IN" && !RANGE_CONFIG[range]) {
+      return jsonResponse({
+        success: false,
+        error: "Invalid range"
+      });
+    }
+
+    let autoCheckout = null;
+
+    if (action === "IN") {
+      const open = findOpenSessionForMember(memberId);
+
+      if (open && !queued) {
+        if (open.range === range) {
+          return jsonResponse({
+            success: false,
+            error: "Already checked in"
+          });
+        }
+
+        appendCheckoutRow(
+          open.range,
+          memberId,
+          open.session,
+          queued,
+          clientId ? clientId + "_auto_out" : ""
+        );
+
+        autoCheckout = {
+          range: open.range,
+          rangeName: getRangeName(open.range)
+        };
+      }
+    }
+
+    let sessionId = Utilities.getUuid();
+
+    if (action === "OUT") {
+      const open = findOpenSessionForMember(memberId);
+
+      if (!open) {
+        return jsonResponse({
+          success: false,
+          error: "Not checked in"
+        });
+      }
+
+      sessionId = open.session;
+
+      appendCheckoutRow(
+        open.range,
+        memberId,
+        sessionId,
+        queued,
+        clientId
+      );
+
+      return jsonResponse({
+        success: true
+      });
+    }
+
+    sheet.appendRow([
+      new Date(),
+      range,
+      memberId,
+      positions,
+      supplies,
+      action,
+      sessionId,
+      queued,
+      clientId
+    ]);
+
+    return jsonResponse({
+      success: true,
+      autoCheckout: autoCheckout
+    });
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function appendCheckoutRow(range, memberId, sessionId, queued, clientId) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+
+  sheet.appendRow([
+    new Date(),
+    range,
+    memberId,
+    "",
+    "",
+    "OUT",
+    sessionId,
+    queued || "",
+    clientId || ""
+  ]);
+}
+
+function clientSubmissionExists(clientId) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][8] || "") === String(clientId)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// =========================
+// DASHBOARD
+// =========================
+function getDashboard(days) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  const cutoff = new Date(new Date().getTime() - days * 86400000);
+
+  const rangeData = {};
+  const chartMap = {};
+
+  Object.keys(RANGE_CONFIG).forEach(id => {
+    rangeData[id] = {
+      id,
+      name: RANGE_CONFIG[id].name,
+      total: 0,
+      checkoutTotal: 0,
+      active: [],
+      positions: [],
+      rows: RANGE_CONFIG[id].rows,
+      ammo: RANGE_CONFIG[id].ammo
+    };
+
+    chartMap[id] = {};
+  });
+
+  const openSessions = getOpenSessions();
+
+  openSessions.forEach(s => {
+    if (!rangeData[s.range]) return;
+
+    rangeData[s.range].active.push(s.member);
+
+    if (s.positions) {
+      s.positions.split(",").forEach(p => {
+        if (p) rangeData[s.range].positions.push(p);
+      });
+    }
+  });
+
+  for (let i = 1; i < data.length; i++) {
+    const date = new Date(data[i][0]);
+    const range = String(data[i][1] || "").toLowerCase();
+    const action = data[i][5];
+
+    if (!rangeData[range]) continue;
+    if (date < cutoff) continue;
+
+    if (action === "IN") {
+      rangeData[range].total++;
+      const key = date.toISOString().split("T")[0];
+      chartMap[range][key] = (chartMap[range][key] || 0) + 1;
+    }
+
+    if (action === "OUT") {
+      rangeData[range].checkoutTotal++;
+    }
+  }
+
+  Object.keys(rangeData).forEach(id => {
+    rangeData[id].chart = Object.keys(chartMap[id]).sort().map(date => ({
+      date,
+      count: chartMap[id][date]
+    }));
+  });
+
+  const ranges = Object.values(rangeData).filter(r =>
+    r.total > 0 ||
+    r.checkoutTotal > 0 ||
+    r.active.length > 0
+  );
+
+  return {
+    ranges,
+    config: RANGE_CONFIG
+  };
+}
+
+// =========================
+// ADMIN
+// =========================
+function adminForceCheckout(memberId) {
+  const open = findOpenSessionForMember(memberId);
+
+  if (!open) {
+    return {
+      success: false,
+      error: "Member is not checked in"
+    };
+  }
+
+  appendCheckoutRow(open.range, memberId, open.session, "", "");
+
+  return {
+    success: true,
+    range: open.range
+  };
+}
+
+function adminClearRange(rangeId) {
+  const range = String(rangeId || "").toLowerCase();
+  const active = getOpenSessions().filter(s => s.range === range);
+
+  active.forEach(s => {
+    appendCheckoutRow(s.range, s.member, s.session, "", "");
+  });
+
+  return {
+    success: true,
+    cleared: active.length
+  };
+}
+
+function adminClearAll() {
+  const active = getOpenSessions();
+
+  active.forEach(s => {
+    appendCheckoutRow(s.range, s.member, s.session, "", "");
+  });
+
+  return {
+    success: true,
+    cleared: active.length
+  };
+}
+
+function adminLogs(limit) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+
+  return data.slice(-limit).reverse();
+}
+
+// =========================
+// BACKUP
+// =========================
+function backupSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const file = DriveApp.getFileById(ss.getId());
+
+  let folder;
+  const folders = DriveApp.getFoldersByName("Fowler Range Backups");
+
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder("Fowler Range Backups");
+  }
+
+  const name = "Backup_" + new Date().toISOString();
+  file.makeCopy(name, folder);
+}
+
+function setupNightlyBackupTrigger() {
+  ScriptApp
+    .newTrigger("backupSheet")
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+}
