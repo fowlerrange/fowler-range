@@ -2760,8 +2760,8 @@ function submitCheckIn(){
       const newWaiverIds =
   guestEntries
     .filter(guest =>
-      guest.mode === "new" &&
-      guest.waiverId
+      guest.waiverId &&
+      guest.guestSignature
     )
     .map(guest => guest.waiverId);
 
@@ -2800,10 +2800,20 @@ if(newWaiverIds.length > 0){
 
       showSuccess(message);
 
-      setTimeout(
-  () => location.reload(),
-  newWaiverIds.length > 0 ? 15000 : 3500
-);
+      if(newWaiverIds.length > 0){
+  const doneButton = document.createElement("button");
+  doneButton.innerText = "Done";
+  doneButton.style.fontSize = "22px";
+  doneButton.style.marginTop = "25px";
+  doneButton.onclick = () => location.reload();
+
+  document.getElementById("loading").appendChild(doneButton);
+} else {
+  setTimeout(
+    () => location.reload(),
+    3500
+  );
+}
     })
     .catch(error => {
       if(
