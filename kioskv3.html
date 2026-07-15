@@ -1275,9 +1275,11 @@ async function renderWaiverPdf(){
   container.innerHTML = "";
 
   const loadingTask =
-    pdfjsLib.getDocument({
-      data: waiverPdfBytes
-    });
+  pdfjsLib.getDocument({
+    // PDF.js may transfer/detach the supplied ArrayBuffer.
+    // Give it a copy so the original remains available for pdf-lib.
+    data: waiverPdfBytes.slice()
+  });
 
   const pdf =
     await loadingTask.promise;
@@ -2047,9 +2049,10 @@ async function createCompletedGroupPdf(){
     }
 
     const document =
-      await PDFDocument.load(
-        waiverPdfBytes
-      );
+  await PDFDocument.load(
+    // Each guest receives a fresh copy of the original PDF bytes.
+    waiverPdfBytes.slice()
+  );
 
     const pages =
       document.getPages();
