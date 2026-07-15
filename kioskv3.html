@@ -2757,9 +2757,28 @@ function submitCheckIn(){
       };
     })
     .then(outcome => {
-      let message =
-        "Check-in successful.\n\n" +
-        "Please remember to check out before leaving.";
+      const newWaiverIds =
+  guestEntries
+    .filter(guest =>
+      guest.mode === "new" &&
+      guest.waiverId
+    )
+    .map(guest => guest.waiverId);
+
+let message =
+  "Check-in successful.\n\n" +
+  "Please remember to check out before leaving.";
+
+if(newWaiverIds.length > 0){
+  message +=
+    "\n\nGuest Waiver ID" +
+    (newWaiverIds.length > 1 ? "s" : "") +
+    ":\n" +
+    newWaiverIds.join("\n") +
+    "\n\nPlease save or photograph " +
+    (newWaiverIds.length > 1 ? "these IDs" : "this ID") +
+    " for future visits.";
+}
 
       if(
         outcome.result.autoCheckout &&
@@ -2782,9 +2801,9 @@ function submitCheckIn(){
       showSuccess(message);
 
       setTimeout(
-        () => location.reload(),
-        3500
-      );
+  () => location.reload(),
+  newWaiverIds.length > 0 ? 15000 : 3500
+);
     })
     .catch(error => {
       if(
