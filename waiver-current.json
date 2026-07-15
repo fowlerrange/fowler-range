@@ -1,1 +1,246 @@
+{
+  "version": "NFGA-2005-10-12",
+  "pdf": "NFGA_Waiver_2005-10-12.pdf",
 
+  "acknowledgements": [
+    {
+      "id": "risk-hazard",
+      "label": "I acknowledge that firing-range activities are inherently hazardous and involve known, unknown, and unanticipated risks."
+    },
+    {
+      "id": "lead-testing",
+      "label": "I acknowledge NFGA's recommendation to consult my physician regarding blood-lead testing."
+    },
+    {
+      "id": "first-aid",
+      "label": "I acknowledge that NFGA has no legal duty to provide first aid or rescue operations."
+    },
+    {
+      "id": "facilities-equipment",
+      "label": "I acknowledge that NFGA makes no warranty regarding its facilities or equipment."
+    },
+    {
+      "id": "accept-risks",
+      "label": "I accept and assume all risks connected with entering NFGA property and participating in or observing activities."
+    },
+    {
+      "id": "guest-responsibility",
+      "label": "I accept responsibility and liability for the conduct of my guests."
+    },
+    {
+      "id": "laws-rules",
+      "label": "I agree to follow applicable laws and all NFGA and firing-range rules."
+    },
+    {
+      "id": "release",
+      "label": "I release and agree not to sue NFGA and the released parties as stated in the agreement."
+    },
+    {
+      "id": "indemnify",
+      "label": "I agree to indemnify and hold harmless the released parties as stated in the agreement."
+    },
+    {
+      "id": "new-hampshire-law",
+      "label": "I agree that the agreement is governed by New Hampshire law and proceedings will be brought in New Hampshire courts."
+    },
+    {
+      "id": "severability",
+      "label": "I agree that any invalid or unenforceable portion will not invalidate the remaining provisions."
+    },
+    {
+      "id": "continuing-effect",
+      "label": "I agree that the agreement remains in effect indefinitely and applies to every occasion I enter NFGA property."
+    }
+  ],
+
+  "fields": {
+    "initials": [
+      { "page": 1, "x": 64, "y": 578, "size": 9 },
+      { "page": 1, "x": 64, "y": 518, "size": 9 },
+      { "page": 1, "x": 65, "y": 459, "size": 9 },
+      { "page": 1, "x": 65, "y": 387, "size": 9 },
+      { "page": 1, "x": 65, "y": 278, "size": 9 },
+      { "page": 1, "x": 65, "y": 193, "size": 9 },
+      { "page": 1, "x": 64, "y": 145, "size": 9 },
+      { "page": 1, "x": 62, "y": 22, "size": 9 },
+
+      { "page": 2, "x": 75, "y": 650, "size": 9 },
+      { "page": 2, "x": 75, "y": 577, "size": 9 },
+      { "page": 2, "x": 75, "y": 504, "size": 9 },
+      { "page": 2, "x": 75, "y": 444, "size": 9 }
+    ],
+
+    "guestDate": {
+      "page": 2,
+      "x": 82,
+      "y": 274,
+      "size": 8,
+      "maxWidth": 145
+    },
+
+    "guestLocation": {
+      "page": 2,
+      "x": 248,
+      "y": 274,
+      "size": 8,
+      "maxWidth": 185
+    },
+
+    "guestSignature": {
+      "page": 2,
+      "x": 80,
+      "y": 261,
+      "width": 150,
+      "height": 18
+    },
+
+    "guestTypeGuest": {
+      "page": 2,
+      "x": 373,
+      "y": 261,
+      "size": 9
+    },
+
+    "guestTypeMinor": {
+      "page": 2,
+      "x": 498,
+      "y": 261,
+      "size": 9
+    },
+
+    "guestPrintedName": {
+      "page": 2,
+      "x": 101,
+      "y": 250,
+      "size": 8,
+      "maxWidth": 128
+    },
+
+    "guestTelephone": {
+      "page": 2,
+      "x": 318,
+      "y": 250,
+      "size": 8,
+      "maxWidth": 145
+    },
+
+    "guestAddress": {
+      "page": 2,
+      "x": 73,
+      "y": 236,
+      "size": 8,
+      "maxWidth": 425
+    },
+
+    "witnessSignatures": [
+      {
+        "page": 2,
+        "x": 118,
+        "y": 223,
+        "width": 192,
+        "height": 18
+      },
+      {
+        "page": 2,
+        "x": 118,
+        "y": 65,
+        "width": 191,
+        "height": 18
+      }
+    ],
+
+    "witnessPrintedNames": [
+      {
+        "page": 2,
+        "x": 375,
+        "y": 224,
+        "size": 8,
+        "maxWidth": 136
+      },
+      {
+        "page": 2,
+        "x": 375,
+        "y": 66,
+        "size": 8,
+        "maxWidth": 136
+      }
+    ],
+
+    "memberDate": {
+      "page": 2,
+      "x": 82,
+      "y": 115,
+      "size": 8,
+      "maxWidth": 145
+    },
+
+    "memberLocation": {
+      "page": 2,
+      "x": 248,
+      "y": 115,
+      "size": 8,
+      "maxWidth": 185
+    },
+
+    "memberSignature": {
+      "page": 2,
+      "x": 80,
+      "y": 102,
+      "width": 150,
+      "height": 18
+    },
+
+    "memberSigningAsHost": {
+      "page": 2,
+      "x": 365,
+      "y": 103,
+      "size": 9
+    },
+
+    "memberSigningAsParent": {
+      "page": 2,
+      "x": 459,
+      "y": 103,
+      "size": 9
+    },
+
+    "memberSigningAsGuardian": {
+      "page": 2,
+      "x": 80,
+      "y": 91,
+      "size": 9
+    },
+
+    "memberPrintedName": {
+      "page": 2,
+      "x": 168,
+      "y": 91,
+      "size": 8,
+      "maxWidth": 107
+    },
+
+    "memberTelephone": {
+      "page": 2,
+      "x": 344,
+      "y": 91,
+      "size": 8,
+      "maxWidth": 154
+    },
+
+    "memberAddress": {
+      "page": 2,
+      "x": 73,
+      "y": 79,
+      "size": 8,
+      "maxWidth": 436
+    },
+
+    "waiverId": {
+      "page": 2,
+      "x": 455,
+      "y": 35,
+      "size": 7,
+      "maxWidth": 120
+    }
+  }
+}
