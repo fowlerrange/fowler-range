@@ -2298,7 +2298,7 @@ function drawTextAt(
   );
 }
 
-  function drawTextAtMany(
+ function drawTextAtMany(
   pages,
   locations,
   text,
@@ -2378,6 +2378,24 @@ async function drawSignatureAt(
   );
 }
 
+async function drawSignatureAtMany(
+  document,
+  pages,
+  locations,
+  dataUrl
+){
+  if(!Array.isArray(locations)) return;
+
+  for(const location of locations){
+    await drawSignatureAt(
+      document,
+      pages,
+      location,
+      dataUrl
+    );
+  }
+}
+  
 async function encryptWaiverPdf(pdfBytes){
   const publicKey =
     await importRsaPublicKey(
