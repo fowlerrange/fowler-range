@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>Queue Diagnostic</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  font-size: 18px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f3f3f3;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+button {
+  font-size: 18px;
+  padding: 10px 16px;
+  margin: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Fowler Kiosk Queue Diagnostic</h2>
+
+<div id="summary"></div>
+
+<h3>First queued item</h3>
+<pre id="first"></pre>
+
+<h3>Last queued item</h3>
+<pre id="last"></pre>
+
+<button onclick="refresh()">Refresh</button>
+
+<script>
+function refresh() {
+  let queue = [];
+
+  try {
+    queue = JSON.parse(
+      localStorage.getItem("offlineQueue") || "[]"
+    );
+  } catch(e) {
+    document.getElementById("summary").innerText =
+      "ERROR reading queue: " + e.message;
+    return;
+  }
+
+  document.getElementById("summary").innerHTML =
+    "<b>Pending items:</b> " + queue.length;
+
+  document.getElementById("first").innerText =
+    queue.length
+      ? JSON.stringify(queue[0], null, 2)
+      : "Queue is empty.";
+
+  document.getElementById("last").innerText =
+    queue.length
+      ? JSON.stringify(queue[queue.length - 1], null, 2)
+      : "Queue is empty.";
+}
+
+refresh();
+</script>
+
+</body>
+</html>
