@@ -1,0 +1,4020 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  text-align: center;
+  background: white;
+}
+
+.screen {
+  min-height: 100vh;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 20px;
+}
+
+button {
+  font-size: 18px;
+  margin: 7px;
+  padding: 10px 16px;
+  min-width: 90px;
+  border: 1px solid #aaa;
+  border-radius: 7px;
+  background: #f7f7f7;
+}
+
+button:disabled {
+  opacity: 0.45;
+}
+
+input,
+select,
+textarea {
+  font-size: 21px;
+  padding: 10px;
+  margin: 6px;
+  box-sizing: border-box;
+}
+
+input[type="text"],
+input[type="tel"],
+input[type="number"] {
+  width: 290px;
+  text-align: center;
+}
+
+input[type="checkbox"] {
+  width: 30px;
+  height: 30px;
+}
+
+textarea {
+  width: min(90vw, 700px);
+  min-height: 90px;
+}
+
+img.logo {
+  max-width: 150px;
+  margin-bottom: 15px;
+}
+
+#positionsGrid,
+#supplyLines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rangeRow {
+  margin-bottom: 12px;
+}
+
+#status {
+  color: #b00020;
+  margin-top: 10px;
+  font-size: 18px;
+}
+
+#timer {
+  position: fixed;
+  bottom: 5px;
+  right: 10px;
+  font-size: 14px;
+  color: gray;
+  z-index: 500;
+}
+
+#queueStatus {
+  position: fixed;
+  bottom: 25px;
+  right: 10px;
+  font-size: 13px;
+  color: #555;
+  z-index: 500;
+}
+
+.spinner {
+  border: 6px solid #eee;
+  border-top: 6px solid #333;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+#messageScreen {
+  padding-left: 12%;
+  padding-right: 12%;
+}
+
+#messageText {
+  font-size: 30px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin-bottom: 40px;
+}
+
+.errorBox {
+  font-size: 24px;
+  max-width: 700px;
+  line-height: 1.4;
+}
+
+.guestOption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 15px 0 5px;
+  font-size: 21px;
+}
+
+#guestCountWrap {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 5px 0 12px;
+}
+
+.waiverBox {
+  width: min(95vw, 950px);
+  max-height: 65vh;
+  overflow-y: auto;
+  border: 1px solid #aaa;
+  border-radius: 8px;
+  background: #f7f7f7;
+  padding: 8px;
+}
+
+.pdfPage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 12px;
+  background: white;
+  box-shadow: 0 1px 5px rgba(0,0,0,.2);
+}
+
+.guestCard {
+  width: min(92vw, 800px);
+  border: 1px solid #bbb;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 12px auto;
+  box-sizing: border-box;
+}
+
+.guestModeRow {
+  margin: 12px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  justify-items: center;
+}
+
+.ackList {
+  width: min(94vw, 900px);
+  max-height: 63vh;
+  overflow-y: auto;
+  text-align: left;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.ackItem {
+  border-bottom: 1px solid #ddd;
+  padding: 12px 4px;
+}
+
+.ackItem:last-child {
+  border-bottom: none;
+}
+
+.ackLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.signatureWrap {
+  margin: 15px auto;
+}
+
+.signatureCanvas {
+  width: min(90vw, 650px);
+  height: 180px;
+  border: 2px solid #555;
+  background: white;
+  touch-action: none;
+}
+
+.smallNote {
+  font-size: 14px;
+  color: #555;
+  max-width: 700px;
+  line-height: 1.4;
+}
+
+#loading {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: white;
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.inlineButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+#homeButton {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 8000;
+  display: none;
+  min-width: 80px;
+}
+
+#connectionStatus {
+  position: fixed;
+  bottom: 5px;
+  left: 10px;
+  font-size: 13px;
+  color: #555;
+  z-index: 500;
+}
+
+#closedMessage {
+  display: none;
+  max-width: 760px;
+  font-size: 28px;
+  line-height: 1.45;
+  margin-top: 15px;
+}
+
+.forgottenMessage {
+  max-width: 760px;
+  font-size: 22px;
+  line-height: 1.5;
+}
+
+.hidden {
+  display: none !important;
+}
+</style>
+</head>
+
+<body>
+
+<div id="loading"></div>
+
+<!-- HOME -->
+<div id="home" class="screen" style="display:flex;">
+  <img src="Logo.jpeg" class="logo">
+  <h1 id="rangeTitle" style="color:white;">Range Kiosk</h1>
+
+  <div id="homeActions">
+    <button onclick="startCheckIn()">Check In</button>
+    <button onclick="startCheckOut()">Check Out</button>
+    <button id="guestWaiverButton"
+            style="display:none;"
+            onclick="startStandaloneWaiver()">
+      Guest Waiver
+    </button>
+  </div>
+
+  <div id="closedMessage">
+    The range is currently closed.
+  </div>
+</div>
+
+<!-- BAD RANGE -->
+<div id="badRange" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <div class="errorBox">
+    This kiosk URL is missing or contains an invalid range.<br><br>
+    Please correct the URL.
+  </div>
+</div>
+
+<!-- MESSAGE -->
+<div id="messageScreen" class="screen">
+  <div id="messageText"></div>
+  <button onclick="continueAfterMessage()">OK</button>
+</div>
+
+<!-- MEMBER -->
+<div id="member" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Enter Member ID</h2>
+
+  <input id="memberInput"
+         type="text"
+         inputmode="numeric"
+         autocomplete="off">
+
+  <label class="guestOption">
+    <input id="hasGuests"
+           type="checkbox"
+           onchange="toggleGuestCount()">
+    <span>I have a guest(s)</span>
+  </label>
+
+  <div id="guestCountWrap">
+    <label for="guestCount">Number of guests:</label>
+    <input id="guestCount"
+           type="number"
+           inputmode="numeric"
+           min="1"
+           max="20"
+           value="1"
+           style="width:100px;">
+  </div>
+
+  <button onclick="goAfterMember()">Next</button>
+</div>
+
+<!-- STANDALONE GUEST WAIVER -->
+<div id="standaloneWaiverStart" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Guest Waiver</h2>
+
+  <p style="max-width:700px; font-size:19px; line-height:1.4;">
+    Enter the sponsoring member ID and the number of guests completing waivers.
+    This does not check anyone in to the range.
+  </p>
+
+  <input id="waiverSponsorMemberInput"
+         type="text"
+         inputmode="numeric"
+         autocomplete="off"
+         placeholder="Sponsoring member ID">
+
+  <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin:8px 0 12px;">
+    <label for="standaloneGuestCount">Number of guests:</label>
+    <input id="standaloneGuestCount"
+           type="number"
+           inputmode="numeric"
+           min="1"
+           max="20"
+           value="1"
+           style="width:100px;">
+  </div>
+
+  <button onclick="beginStandaloneWaiver()">Next</button>
+  <button onclick="showScreen('home')">Cancel</button>
+</div>
+
+<!-- FORGOTTEN CHECKOUT WARNING -->
+<div id="forgottenWarning" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Checkout Reminder</h2>
+  <div id="forgottenWarningText" class="forgottenMessage"></div>
+  <button onclick="acknowledgeForgottenWarning()">OK</button>
+</div>
+
+<!-- AUTOMATIC MOVE -->
+<div id="autoMove" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <div id="autoMoveText"
+       style="font-size:24px; max-width:700px; line-height:1.4;">
+  </div>
+</div>
+
+<!-- ELECTRONIC CONSENT -->
+<div id="electronicConsent" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Electronic Waiver</h2>
+
+  <div style="max-width:760px; font-size:20px; line-height:1.5;">
+    This agreement will be completed and stored electronically.
+    By continuing, each signer agrees to use electronic records,
+    initials, and signatures for this agreement.
+  </div>
+
+  <button onclick="acceptElectronicConsent()">Continue</button>
+</div>
+
+<!-- FULL PDF VIEW -->
+<div id="waiverView" class="screen">
+  <h2>Guest Waiver</h2>
+  <p>Please read the complete agreement.</p>
+
+  <div id="waiverPdfContainer"
+       class="waiverBox"
+       onscroll="checkWaiverScroll()">
+  </div>
+
+  <p id="waiverScrollMessage" class="smallNote">
+    Scroll to the bottom to continue.
+  </p>
+
+  <button id="waiverContinueButton"
+          disabled
+          onclick="buildGuestEntries()">
+    Continue
+  </button>
+</div>
+
+<!-- GUEST TYPE / RETURNING LOOKUP -->
+<div id="guestSetup" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Guest Information</h2>
+  <div id="guestSetupCards"></div>
+  <button onclick="validateGuestSetup()">Next</button>
+</div>
+
+<!-- NEW GUEST DETAILS -->
+<div id="guestDetails" class="screen">
+  <h2 id="guestDetailsTitle">Guest Details</h2>
+
+  <div class="formGrid">
+    <input id="guestPrintedName"
+           type="text"
+           placeholder="Guest printed name"
+           autocomplete="off">
+
+    <input id="guestTelephone"
+           type="tel"
+           placeholder="Guest telephone"
+           autocomplete="off">
+
+    <textarea id="guestAddress"
+              placeholder="Guest address"></textarea>
+
+    <select id="guestType">
+      <option value="guest">Guest</option>
+      <option value="minor">Minor under age 18</option>
+    </select>
+
+    <input id="guestInitials"
+           type="text"
+           maxlength="6"
+           placeholder="Guest initials"
+           autocomplete="off">
+
+    <h3>Sponsoring Member / Parent / Guardian</h3>
+
+    <input id="memberPrintedName"
+           type="text"
+           placeholder="Member full printed name"
+           autocomplete="off">
+
+    <input id="memberTelephone"
+           type="tel"
+           placeholder="Member telephone"
+           autocomplete="off">
+
+    <textarea id="memberAddress"
+              placeholder="Member address"></textarea>
+
+    <select id="memberSigningAs">
+      <option value="host">Host</option>
+      <option value="parent">Parent</option>
+      <option value="guardian">Guardian</option>
+    </select>
+
+    <h3>Witness</h3>
+
+    <input id="witnessPrintedName"
+           type="text"
+           placeholder="Witness printed name"
+           autocomplete="off">
+  </div>
+
+  <button onclick="saveCurrentGuestDetails()">Next</button>
+</div>
+
+<!-- ACKNOWLEDGEMENTS -->
+<div id="acknowledgements" class="screen">
+  <h2 id="ackTitle">Initial Each Section</h2>
+
+  <p>
+    Tap every acknowledgement to apply the guest's initials.
+  </p>
+
+  <div id="ackList" class="ackList"></div>
+
+  <button onclick="finishAcknowledgements()">Next</button>
+</div>
+
+<!-- GUEST SIGNATURE -->
+<div id="guestSignatureScreen" class="screen">
+  <h2 id="guestSignatureTitle">Guest Signature</h2>
+
+  <div class="signatureWrap">
+    <canvas id="guestSignatureCanvas"
+            class="signatureCanvas"
+            width="900"
+            height="250"></canvas>
+  </div>
+
+  <div class="inlineButtons">
+    <button onclick="clearSignature('guestSignatureCanvas')">Clear</button>
+    <button onclick="saveGuestSignature()">Next</button>
+  </div>
+</div>
+
+<!-- MEMBER SIGNATURE -->
+<div id="memberSignatureScreen" class="screen">
+  <h2 id="memberSignatureTitle">Member Signature</h2>
+
+  <p>
+    Sign for this guest's individual waiver copy.
+  </p>
+
+  <div class="signatureWrap">
+    <canvas id="memberSignatureCanvas"
+            class="signatureCanvas"
+            width="900"
+            height="250"></canvas>
+  </div>
+
+  <div class="inlineButtons">
+    <button onclick="clearSignature('memberSignatureCanvas')">Clear</button>
+    <button onclick="saveMemberSignature()">Next</button>
+  </div>
+</div>
+
+<!-- WITNESS SIGNATURE -->
+<div id="witnessSignatureScreen" class="screen">
+  <h2 id="witnessSignatureTitle">Witness Signature</h2>
+
+  <div class="signatureWrap">
+    <canvas id="witnessSignatureCanvas"
+            class="signatureCanvas"
+            width="900"
+            height="250"></canvas>
+  </div>
+
+  <div class="inlineButtons">
+    <button onclick="clearSignature('witnessSignatureCanvas')">Clear</button>
+    <button onclick="saveWitnessSignature()">Continue</button>
+  </div>
+</div>
+
+<!-- POSITIONS -->
+<div id="positions" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Select Positions</h2>
+  <p>Select all that apply</p>
+  <div id="positionsGrid"></div>
+  <button onclick="goAfterPositions()">Next</button>
+</div>
+
+<!-- AMMO -->
+<div id="supplies" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Ammo / Caliber</h2>
+  <p>Enter the calibers you plan to use.</p>
+  <div id="supplyLines"></div>
+  <button onclick="submitCheckIn()">Submit</button>
+</div>
+
+<!-- CHECKOUT -->
+<div id="checkout" class="screen">
+  <img src="Logo.jpeg" class="logo">
+  <h2>Check Out</h2>
+  <div id="activeUsers"></div>
+</div>
+
+<button id="homeButton" onclick="goHome()">Home</button>
+<div id="status"></div>
+<div id="connectionStatus">Checking connection...</div>
+<div id="queueStatus"></div>
+<div id="timer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbzU2z8YyAUMt7gm2QVJxBQ_Ch1_lcWYwlkK-GCr6lnX20guQa2kwwjoWERPimF00zHG/exec";
+const API_KEY = "950218067144772919";
+
+const MEMBER_TIMEOUT_MS = 5000;
+const ACTIVE_TIMEOUT_MS = 3500;
+const SUBMIT_TIMEOUT_MS = 8000;
+const CONFIG_TIMEOUT_MS = 5000;
+const WAIVER_UPLOAD_TIMEOUT_MS = 30000;
+const KIOSK_VERSION = "2.1";
+const HEARTBEAT_INTERVAL_MS = 30 * 60 * 1000;
+const RANGE_STATUS_INTERVAL_MS = 30 * 1000;
+
+const RANGE_LATITUDE = 42.80514979316717;
+const RANGE_LONGITUDE = -71.49103129523984;
+const RANGE_TIME_ZONE = "America/New_York";
+const NORMAL_OPEN_HOUR = 8;
+const SUNSET_GRACE_MINUTES = 30;
+const RANGE_HOURS_EXEMPT = ["procter", "archery"];
+
+const WAIVER_MARKER_FILE = "showwaiver.txt";
+const WAIVER_PUBLIC_KEY_FILE = "waiver-public-key.pem";
+
+const WAIVER_ID_ALPHABET =
+  "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+let config = {};
+let currentRangeId = "";
+let currentRange = null;
+
+let membersList = [];
+let activeUsers = [];
+let memberId = "";
+let selectedPositions = [];
+
+let submitting = false;
+let checkingOut = false;
+
+let hasGuests = false;
+let guestCount = 0;
+let guestGroupId = "";
+let guestEntries = [];
+let currentGuestIndex = 0;
+
+let waiverEnabled = false;
+let waiverManifest = null;
+let waiverPdfBytes = null;
+let waiverPdfName = "";
+let waiverVersion = "";
+let waiverPublicKeyPem = "";
+
+let completedWaiverPackage = null;
+let waiverOnlyMode = false;
+let pendingMemberStatusResult = null;
+let backendOnline = false;
+let lastRangeOpenState = null;
+let testMode = false;
+
+window.onload = function(){
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  currentRangeId = getRangeFromUrl();
+  testMode = getTestModeFromUrl();
+
+  loadCachedConfig();
+  initConfig();
+
+  loadCachedMembers();
+  loadMembers();
+
+  initializeSignatureCanvas("guestSignatureCanvas");
+  initializeSignatureCanvas("memberSignatureCanvas");
+  initializeSignatureCanvas("witnessSignatureCanvas");
+
+  syncQueue();
+  resetTimer();
+  updateQueueStatus();
+  refreshConnectionStatus();
+  sendHeartbeat();
+  refreshRangeAvailability();
+
+  setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+  setInterval(refreshRangeAvailability, RANGE_STATUS_INTERVAL_MS);
+};
+
+window.addEventListener("online", () => {
+  syncQueue();
+  sendHeartbeat();
+});
+window.addEventListener("offline", refreshConnectionStatus);
+setInterval(syncQueue, 10000);
+
+function getRangeFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+
+  return String(params.get("range") || "")
+    .toLowerCase()
+    .trim();
+}
+
+function getTestModeFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get("test") || "") === "1";
+}
+
+function fetchWithTimeout(url, timeoutMs, options){
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    timeoutMs
+  );
+
+  const requestOptions = Object.assign(
+    {},
+    options || {},
+    { signal: controller.signal }
+  );
+
+  return fetch(url, requestOptions)
+    .finally(() => clearTimeout(timer));
+}
+
+function showLoading(message){
+  document.getElementById("loading").innerHTML =
+    `<div style="font-size:22px; margin-bottom:15px;">
+       ${escapeHtml(message || "Please wait...")}
+     </div>
+     <div class="spinner"></div>`;
+
+  document.getElementById("loading").style.display = "flex";
+}
+
+function showSuccess(message){
+  document.getElementById("loading").innerHTML =
+    `<div style="font-size:24px; line-height:1.5; white-space:pre-line;">
+       ${escapeHtml(message)}
+     </div>`;
+
+  document.getElementById("loading").style.display = "flex";
+}
+
+function hideLoading(){
+  document.getElementById("loading").style.display = "none";
+}
+
+function showScreen(id){
+  setStatus("");
+
+  document.querySelectorAll(".screen")
+    .forEach(screen => {
+      screen.style.display = "none";
+    });
+
+  document.getElementById(id).style.display = "flex";
+
+  const homeButton = document.getElementById("homeButton");
+  if(homeButton){
+    homeButton.style.display =
+      (id === "home" || id === "badRange")
+        ? "none"
+        : "block";
+  }
+
+  setTimeout(() => {
+    const input = document.querySelector(
+      "#" + id + " input:not([type='checkbox'])"
+    );
+
+    if(input) input.focus();
+  }, 300);
+}
+
+function setStatus(message){
+  document.getElementById("status").innerText =
+    message || "";
+}
+
+function escapeHtml(value){
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function loadCachedConfig(){
+  try {
+    config = JSON.parse(
+      localStorage.getItem("rangeConfig") || "{}"
+    );
+  } catch(error) {
+    config = {};
+  }
+}
+
+function initConfig(){
+  fetchWithTimeout(
+    API + "?action=config",
+    CONFIG_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(data => {
+    config = data || {};
+
+    localStorage.setItem(
+      "rangeConfig",
+      JSON.stringify(config)
+    );
+
+    applyRangeConfig();
+  })
+  .catch(() => applyRangeConfig());
+}
+
+function applyRangeConfig(){
+  if(
+    !currentRangeId ||
+    !config[currentRangeId]
+  ){
+    showScreen("badRange");
+    return;
+  }
+
+  currentRange = config[currentRangeId];
+
+  const title =
+    document.getElementById("rangeTitle");
+
+  title.innerText = currentRange.name;
+  title.style.color = "black";
+
+  document.getElementById("guestWaiverButton").style.display = "none";
+
+  buildPositions();
+  showScreen("home");
+  refreshWaiverButtonVisibility();
+  refreshRangeAvailability();
+  sendHeartbeat();
+}
+
+function loadCachedMembers(){
+  try {
+    const cached = JSON.parse(
+      localStorage.getItem("membersCache") || "[]"
+    );
+
+    if(cached.length && !membersList.length){
+      membersList = cached.map(String);
+    }
+  } catch(error) {}
+}
+
+function loadMembers(){
+  fetchWithTimeout(
+    API + "?key=" +
+      encodeURIComponent(API_KEY) +
+      "&action=members",
+    MEMBER_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(data => {
+    membersList = data.map(String);
+
+    localStorage.setItem(
+      "membersCache",
+      JSON.stringify(membersList)
+    );
+  })
+  .catch(loadCachedMembers);
+}
+
+function loadActiveUsers(){
+  return fetchWithTimeout(
+    API +
+      "?key=" + encodeURIComponent(API_KEY) +
+      "&action=active" +
+      "&range=" + encodeURIComponent(currentRangeId),
+    ACTIVE_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(data => {
+    activeUsers = data.map(String);
+
+    localStorage.setItem(
+      "activeCache_" + currentRangeId,
+      JSON.stringify(activeUsers)
+    );
+  })
+  .catch(() => {
+    activeUsers = JSON.parse(
+      localStorage.getItem(
+        "activeCache_" + currentRangeId
+      ) || "[]"
+    ).map(String);
+  });
+}
+
+function buildPositions(){
+  if(!currentRange) return;
+
+  const grid =
+    document.getElementById("positionsGrid");
+
+  grid.innerHTML = "";
+  selectedPositions = [];
+
+  (currentRange.rows || []).forEach(rowDef => {
+    const section =
+      document.createElement("div");
+
+    section.className = "rangeRow";
+
+    const heading =
+      document.createElement("h3");
+
+    heading.innerText = rowDef.label;
+
+    const row =
+      document.createElement("div");
+
+    for(let i = 0; i < rowDef.count; i++){
+      const number = rowDef.start + i;
+      const value =
+        rowDef.label + "-" + number;
+
+      const button =
+        document.createElement("button");
+
+      button.innerText = number;
+
+      button.onclick = () => {
+        if(selectedPositions.includes(value)){
+          selectedPositions =
+            selectedPositions.filter(
+              position => position !== value
+            );
+
+          button.style.background = "";
+          button.style.color = "";
+        } else {
+          selectedPositions.push(value);
+          button.style.background = "#4CAF50";
+          button.style.color = "white";
+        }
+      };
+
+      row.appendChild(button);
+    }
+
+    section.appendChild(heading);
+    section.appendChild(row);
+    grid.appendChild(section);
+  });
+}
+
+function buildSupplies(){
+  const container =
+    document.getElementById("supplyLines");
+
+  container.innerHTML = "";
+
+  for(let i = 0; i < 5; i++){
+    const input =
+      document.createElement("input");
+
+    input.type = "text";
+    input.placeholder = "Caliber " + (i + 1);
+    input.disabled = i !== 0;
+
+    input.oninput = () => {
+      const inputs =
+        container.querySelectorAll("input");
+
+      for(let j = 0; j < inputs.length; j++){
+        inputs[j].disabled =
+          j !== 0 &&
+          inputs[j - 1].value.trim() === "";
+      }
+    };
+
+    container.appendChild(input);
+  }
+}
+
+function toggleGuestCount(){
+  const checked =
+    document.getElementById("hasGuests").checked;
+
+  const wrap =
+    document.getElementById("guestCountWrap");
+
+  wrap.style.display =
+    checked ? "flex" : "none";
+}
+
+function startCheckIn(){
+  waiverOnlyMode = false;
+
+  if(!currentRange){
+    showScreen("badRange");
+    return;
+  }
+
+  memberId = "";
+  selectedPositions = [];
+  hasGuests = false;
+  guestCount = 0;
+  guestGroupId = "";
+  guestEntries = [];
+  currentGuestIndex = 0;
+  completedWaiverPackage = null;
+
+  document.getElementById("memberInput").value = "";
+  document.getElementById("hasGuests").checked = false;
+  document.getElementById("guestCount").value = "1";
+  toggleGuestCount();
+
+  buildPositions();
+  loadMessages();
+}
+
+function startStandaloneWaiver(){
+  if(currentRangeId !== "procter"){
+    return;
+  }
+
+  waiverOnlyMode = true;
+  memberId = "";
+  hasGuests = true;
+  guestCount = 1;
+  guestGroupId = "";
+  guestEntries = [];
+  currentGuestIndex = 0;
+  completedWaiverPackage = null;
+
+  document.getElementById("waiverSponsorMemberInput").value = "";
+  document.getElementById("standaloneGuestCount").value = "1";
+
+  showScreen("standaloneWaiverStart");
+}
+
+async function beginStandaloneWaiver(){
+  const sponsorId =
+    document.getElementById("waiverSponsorMemberInput")
+      .value.trim();
+
+  const count = Math.max(
+    1,
+    parseInt(
+      document.getElementById("standaloneGuestCount").value,
+      10
+    ) || 1
+  );
+
+  if(!sponsorId){
+    setStatus("Enter the sponsoring member ID");
+    return;
+  }
+
+  memberId = String(sponsorId);
+  guestCount = count;
+  hasGuests = true;
+
+  if(!membersList.length){
+    loadCachedMembers();
+  }
+
+  if(!membersList.length){
+    if(!confirm(
+      "Member list unavailable. Continue anyway?"
+    )){
+      return;
+    }
+  } else if(!membersList.includes(memberId)){
+    if(!confirm(
+      "Member not found. Continue?"
+    )){
+      return;
+    }
+  }
+
+  guestGroupId =
+    memberId +
+    "-G-" +
+    Date.now().toString(36).toUpperCase();
+
+  showLoading("Loading guest waiver...");
+
+  const enabled = await checkWaiverEnabled();
+  hideLoading();
+
+  if(!enabled){
+    alert(
+      "The electronic guest waiver is currently unavailable."
+    );
+    showScreen("home");
+    return;
+  }
+
+  waiverEnabled = true;
+  showScreen("electronicConsent");
+}
+
+function loadMessages(){
+  const files = [
+    "message.txt?ts=" + Date.now(),
+    "message-" + currentRangeId +
+      ".txt?ts=" + Date.now()
+  ];
+
+  Promise.all(
+    files.map(url =>
+      fetch(url)
+        .then(response =>
+          response.ok ? response.text() : ""
+        )
+        .catch(() => "")
+    )
+  )
+  .then(parts => {
+    const text = parts
+      .map(part => part.trim())
+      .filter(Boolean)
+      .join("\n\n");
+
+    if(text){
+      document.getElementById(
+        "messageText"
+      ).innerText = text;
+
+      showScreen("messageScreen");
+    } else {
+      showScreen("member");
+    }
+  });
+}
+
+function continueAfterMessage(){
+  showScreen("member");
+}
+
+async function goAfterMember(){
+  const value =
+    document.getElementById("memberInput")
+      .value.trim();
+
+  if(!value){
+    setStatus("Enter Member ID");
+    return;
+  }
+
+  memberId = String(value);
+
+  hasGuests =
+    document.getElementById("hasGuests")
+      .checked;
+
+  guestCount = hasGuests
+    ? Math.max(
+        1,
+        parseInt(
+          document.getElementById("guestCount").value,
+          10
+        ) || 1
+      )
+    : 0;
+
+  showLoading("Checking member status...");
+
+  if(!membersList.length){
+    loadCachedMembers();
+  }
+
+  if(!membersList.length){
+    hideLoading();
+
+    if(!confirm(
+      "Member list unavailable. Continue anyway?"
+    )){
+      return;
+    }
+
+    showLoading("Checking member status...");
+  } else if(!membersList.includes(memberId)){
+    hideLoading();
+
+    if(!confirm(
+      "Member not found. Continue?"
+    )){
+      return;
+    }
+
+    showLoading("Checking member status...");
+  }
+
+  const result =
+    await checkMemberGlobalStatus(memberId);
+
+  hideLoading();
+
+  if(
+    result &&
+    result.forgottenWarning
+  ){
+    pendingMemberStatusResult = result;
+    showForgottenWarning(result.forgottenWarning);
+    return;
+  }
+
+  processMemberStatusResult(result);
+}
+
+function processMemberStatusResult(result){
+  if(
+    result &&
+    result.active &&
+    result.range &&
+    result.range !== currentRangeId
+  ){
+    const oldName =
+      result.rangeName || result.range;
+
+    document.getElementById(
+      "autoMoveText"
+    ).innerText =
+      "You are currently checked in at " +
+      oldName +
+      ".\n\nYou will be checked out there " +
+      "and checked in here.";
+
+    showScreen("autoMove");
+
+    setTimeout(
+      continueAfterMemberStatus,
+      3000
+    );
+
+    return;
+  }
+
+  if(
+    result &&
+    result.active &&
+    result.range === currentRangeId
+  ){
+    if(confirm(
+      "You are already checked in here. Check out?"
+    )){
+      checkout(memberId);
+    } else {
+      goHome();
+    }
+
+    return;
+  }
+
+  continueAfterMemberStatus();
+}
+
+function checkMemberGlobalStatus(id){
+  return fetchWithTimeout(
+    API +
+      "?key=" + encodeURIComponent(API_KEY) +
+      "&action=memberStatus" +
+      "&memberId=" + encodeURIComponent(id),
+    ACTIVE_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .catch(() => null);
+}
+
+function continueAfterMemberStatus(){
+  if(!hasGuests){
+    goNextCheckInStep();
+    return;
+  }
+
+  guestGroupId =
+    memberId +
+    "-G-" +
+    Date.now().toString(36).toUpperCase();
+
+  checkWaiverEnabled()
+    .then(enabled => {
+      waiverEnabled = enabled;
+
+      if(waiverEnabled){
+        showScreen("electronicConsent");
+      } else {
+        buildGuestCountOnlyEntries();
+        goNextCheckInStep();
+      }
+    });
+}
+
+function buildGuestCountOnlyEntries(){
+  guestEntries = [];
+
+  for(let i = 0; i < guestCount; i++){
+    guestEntries.push({
+      mode: "unrecorded",
+      waiverId: ""
+    });
+  }
+}
+
+async function checkWaiverEnabled(){
+  try {
+    const markerResponse =
+      await fetch(
+        WAIVER_MARKER_FILE +
+        "?ts=" + Date.now()
+      );
+
+    if(!markerResponse.ok){
+      return false;
+    }
+
+    const manifestName =
+      (await markerResponse.text()).trim();
+
+    if(!manifestName){
+      return false;
+    }
+
+    const manifestResponse =
+      await fetch(
+        manifestName +
+        "?ts=" + Date.now()
+      );
+
+    if(!manifestResponse.ok){
+      throw new Error(
+        "Waiver manifest could not be loaded."
+      );
+    }
+
+    waiverManifest =
+      await manifestResponse.json();
+
+    waiverPdfName =
+      waiverManifest.pdf;
+
+    waiverVersion =
+      waiverManifest.version;
+
+    if(
+      !waiverPdfName ||
+      !waiverVersion
+    ){
+      throw new Error(
+        "Waiver manifest is incomplete."
+      );
+    }
+
+    const pdfResponse =
+      await fetch(
+        waiverPdfName +
+        "?ts=" + Date.now()
+      );
+
+    if(!pdfResponse.ok){
+      throw new Error(
+        "Waiver PDF could not be loaded."
+      );
+    }
+
+    waiverPdfBytes =
+      new Uint8Array(
+        await pdfResponse.arrayBuffer()
+      );
+
+    const keyResponse =
+      await fetch(
+        WAIVER_PUBLIC_KEY_FILE +
+        "?ts=" + Date.now()
+      );
+
+    if(!keyResponse.ok){
+      throw new Error(
+        "Waiver public key could not be loaded."
+      );
+    }
+
+    waiverPublicKeyPem =
+      await keyResponse.text();
+
+    localStorage.setItem(
+      "cachedWaiverManifest",
+      JSON.stringify(waiverManifest)
+    );
+
+    localStorage.setItem(
+      "cachedWaiverPdf",
+      bytesToBase64(waiverPdfBytes)
+    );
+
+    localStorage.setItem(
+      "cachedWaiverPublicKey",
+      waiverPublicKeyPem
+    );
+
+    return true;
+
+  } catch(error) {
+    try {
+      waiverManifest = JSON.parse(
+        localStorage.getItem(
+          "cachedWaiverManifest"
+        ) || "null"
+      );
+
+      const cachedPdf =
+        localStorage.getItem(
+          "cachedWaiverPdf"
+        );
+
+      waiverPublicKeyPem =
+        localStorage.getItem(
+          "cachedWaiverPublicKey"
+        ) || "";
+
+      if(
+        waiverManifest &&
+        cachedPdf &&
+        waiverPublicKeyPem
+      ){
+        waiverPdfName =
+          waiverManifest.pdf;
+
+        waiverVersion =
+          waiverManifest.version;
+
+        waiverPdfBytes =
+          base64ToBytes(cachedPdf);
+
+        return true;
+      }
+
+    } catch(cacheError) {}
+
+    alert(
+      "The guest waiver is enabled but could not be loaded. " +
+      "Guest check-in cannot continue."
+    );
+
+    return false;
+  }
+}
+
+function acceptElectronicConsent(){
+  renderWaiverPdf()
+    .then(() => {
+      showScreen("waiverView");
+
+      document.getElementById(
+        "waiverContinueButton"
+      ).disabled = true;
+
+      document.getElementById(
+        "waiverScrollMessage"
+      ).innerText =
+        "Scroll to the bottom to continue.";
+    })
+    .catch(error => {
+      alert(
+        "Unable to display the waiver: " +
+        error.message
+      );
+
+      showScreen("home");
+    });
+}
+
+async function renderWaiverPdf(){
+  const container =
+    document.getElementById(
+      "waiverPdfContainer"
+    );
+
+  container.innerHTML = "";
+
+  const loadingTask =
+  pdfjsLib.getDocument({
+    // PDF.js may transfer/detach the supplied ArrayBuffer.
+    // Give it a copy so the original remains available for pdf-lib.
+    data: waiverPdfBytes.slice()
+  });
+
+  const pdf =
+    await loadingTask.promise;
+
+  for(let pageNumber = 1;
+      pageNumber <= pdf.numPages;
+      pageNumber++){
+
+    const page =
+      await pdf.getPage(pageNumber);
+
+    const viewport =
+      page.getViewport({ scale: 1.35 });
+
+    const canvas =
+      document.createElement("canvas");
+
+    canvas.className = "pdfPage";
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({
+      canvasContext:
+        canvas.getContext("2d"),
+
+      viewport
+    }).promise;
+
+    container.appendChild(canvas);
+  }
+
+  container.scrollTop = 0;
+}
+
+function checkWaiverScroll(){
+  const container =
+    document.getElementById(
+      "waiverPdfContainer"
+    );
+
+  const closeToBottom =
+    container.scrollTop +
+    container.clientHeight >=
+    container.scrollHeight - 20;
+
+  if(closeToBottom){
+    document.getElementById(
+      "waiverContinueButton"
+    ).disabled = false;
+
+    document.getElementById(
+      "waiverScrollMessage"
+    ).innerText =
+      "You may continue.";
+  }
+}
+
+function buildGuestEntries(){
+  guestEntries = [];
+
+  for(let i = 0; i < guestCount; i++){
+    guestEntries.push({
+      guestNumber: i + 1,
+      mode: "",
+      waiverId: "",
+      validReturning: false,
+      printedName: "",
+      telephone: "",
+      address: "",
+      guestType: "guest",
+      initials: "",
+      memberPrintedName: "",
+      memberTelephone: "",
+      memberAddress: "",
+      memberSigningAs: "host",
+      witnessPrintedName: "",
+      acknowledgements: [],
+      guestSignature: "",
+      memberSignature: "",
+      witnessSignature: ""
+    });
+  }
+
+  renderGuestSetupCards();
+  showScreen("guestSetup");
+}
+
+function renderGuestSetupCards(){
+  const container =
+    document.getElementById(
+      "guestSetupCards"
+    );
+
+  container.innerHTML = "";
+
+  guestEntries.forEach((guest, index) => {
+    const card =
+      document.createElement("div");
+
+    card.className = "guestCard";
+
+    card.innerHTML =
+      `<h3>Guest ${index + 1}</h3>
+
+       <div class="guestModeRow">
+         <label>
+           <input type="radio"
+                  name="guestMode_${index}"
+                  value="new"
+                  onchange="setGuestMode(${index}, 'new')">
+           New guest — complete waiver
+         </label>
+       </div>
+
+       <div class="guestModeRow">
+         <label>
+           <input type="radio"
+                  name="guestMode_${index}"
+                  value="returning"
+                  onchange="setGuestMode(${index}, 'returning')">
+           Returning guest — enter waiver ID
+         </label>
+       </div>
+
+       <div id="returningWrap_${index}"
+            class="hidden">
+
+         <input id="returningId_${index}"
+                type="text"
+                placeholder="${escapeHtml(memberId)}-XXXX"
+                style="text-transform:uppercase;">
+
+         <button onclick="lookupReturningWaiver(${index})">
+           Verify
+         </button>
+
+         <div id="returningStatus_${index}"></div>
+       </div>`;
+
+    container.appendChild(card);
+  });
+}
+
+function setGuestMode(index, mode){
+  guestEntries[index].mode = mode;
+
+  document.getElementById(
+    "returningWrap_" + index
+  ).classList.toggle(
+    "hidden",
+    mode !== "returning"
+  );
+}
+
+function lookupReturningWaiver(index){
+  const input =
+    document.getElementById(
+      "returningId_" + index
+    );
+
+  const status =
+    document.getElementById(
+      "returningStatus_" + index
+    );
+
+  const waiverId =
+    String(input.value || "")
+      .toUpperCase()
+      .trim();
+
+  if(!waiverId){
+    status.innerText =
+      "Enter a waiver ID.";
+    return;
+  }
+
+  status.innerText = "Checking...";
+
+  fetchWithTimeout(
+    API +
+      "?action=waiverLookup" +
+      "&waiverId=" +
+      encodeURIComponent(waiverId),
+    ACTIVE_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(result => {
+    if(result.valid){
+      guestEntries[index].waiverId =
+        result.waiverId;
+
+      guestEntries[index].validReturning =
+        true;
+
+      status.innerText =
+        "Waiver verified.";
+    } else {
+      guestEntries[index].validReturning =
+        false;
+
+      status.innerText =
+        "Waiver ID not found.";
+    }
+  })
+  .catch(() => {
+    status.innerText =
+      "Unable to verify the waiver ID.";
+  });
+}
+
+function validateGuestSetup(){
+  for(let i = 0;
+      i < guestEntries.length;
+      i++){
+
+    const guest = guestEntries[i];
+
+    if(!guest.mode){
+      alert(
+        "Choose New or Returning for Guest " +
+        (i + 1) + "."
+      );
+
+      return;
+    }
+
+    if(
+      guest.mode === "returning" &&
+      !guest.validReturning
+    ){
+      alert(
+        "Verify the waiver ID for Guest " +
+        (i + 1) + "."
+      );
+
+      return;
+    }
+  }
+
+  const firstNewIndex =
+    guestEntries.findIndex(
+      guest => guest.mode === "new"
+    );
+
+  if(firstNewIndex === -1){
+    if(waiverOnlyMode){
+      showStandaloneReturningComplete();
+    } else {
+      goNextCheckInStep();
+    }
+    return;
+  }
+
+  currentGuestIndex = firstNewIndex;
+  openGuestDetails(currentGuestIndex);
+}
+
+function openGuestDetails(index){
+  currentGuestIndex = index;
+  const guest = guestEntries[index];
+
+  document.getElementById(
+    "guestDetailsTitle"
+  ).innerText =
+    "Guest " + (index + 1) + " Details";
+
+  document.getElementById(
+    "guestPrintedName"
+  ).value = guest.printedName || "";
+
+  document.getElementById(
+    "guestTelephone"
+  ).value = guest.telephone || "";
+
+  document.getElementById(
+    "guestAddress"
+  ).value = guest.address || "";
+
+  document.getElementById(
+    "guestType"
+  ).value = guest.guestType || "guest";
+
+  document.getElementById(
+    "guestInitials"
+  ).value = guest.initials || "";
+
+  document.getElementById(
+    "memberPrintedName"
+  ).value =
+    guest.memberPrintedName || "";
+
+  document.getElementById(
+    "memberTelephone"
+  ).value =
+    guest.memberTelephone || "";
+
+  document.getElementById(
+    "memberAddress"
+  ).value =
+    guest.memberAddress || "";
+
+  document.getElementById(
+    "memberSigningAs"
+  ).value =
+    guest.memberSigningAs || "host";
+
+  document.getElementById(
+    "witnessPrintedName"
+  ).value =
+    guest.witnessPrintedName || "";
+
+  showScreen("guestDetails");
+}
+
+function saveCurrentGuestDetails(){
+  const guest =
+    guestEntries[currentGuestIndex];
+
+  guest.printedName =
+    document.getElementById(
+      "guestPrintedName"
+    ).value.trim();
+
+  guest.telephone =
+    document.getElementById(
+      "guestTelephone"
+    ).value.trim();
+
+  guest.address =
+    document.getElementById(
+      "guestAddress"
+    ).value.trim();
+
+  guest.guestType =
+    document.getElementById(
+      "guestType"
+    ).value;
+
+  guest.initials =
+    document.getElementById(
+      "guestInitials"
+    ).value.trim().toUpperCase();
+
+  guest.memberPrintedName =
+    document.getElementById(
+      "memberPrintedName"
+    ).value.trim();
+
+  guest.memberTelephone =
+    document.getElementById(
+      "memberTelephone"
+    ).value.trim();
+
+  guest.memberAddress =
+    document.getElementById(
+      "memberAddress"
+    ).value.trim();
+
+  guest.memberSigningAs =
+    document.getElementById(
+      "memberSigningAs"
+    ).value;
+
+  guest.witnessPrintedName =
+    document.getElementById(
+      "witnessPrintedName"
+    ).value.trim();
+
+  if(
+    !guest.printedName ||
+    !guest.telephone ||
+    !guest.address ||
+    !guest.initials ||
+    !guest.memberPrintedName ||
+    !guest.memberTelephone ||
+    !guest.memberAddress ||
+    !guest.witnessPrintedName
+  ){
+    alert(
+      "Complete every field before continuing."
+    );
+
+    return;
+  }
+
+  renderAcknowledgements();
+  showScreen("acknowledgements");
+}
+
+function renderAcknowledgements(){
+  const guest =
+    guestEntries[currentGuestIndex];
+
+  const acknowledgements =
+    waiverManifest.acknowledgements || [];
+
+  guest.acknowledgements =
+    new Array(
+      acknowledgements.length
+    ).fill(false);
+
+  document.getElementById(
+    "ackTitle"
+  ).innerText =
+    "Guest " +
+    (currentGuestIndex + 1) +
+    ": Initial Each Section";
+
+  const list =
+    document.getElementById("ackList");
+
+  list.innerHTML = "";
+
+  acknowledgements.forEach(
+    (ack, index) => {
+
+      const item =
+        document.createElement("div");
+
+      item.className = "ackItem";
+
+      item.innerHTML =
+        `<label class="ackLabel">
+           <input type="checkbox"
+                  onchange="setAcknowledgement(${index}, this.checked)">
+           <span>
+             <strong>${escapeHtml(guest.initials)}</strong>
+             &nbsp; ${escapeHtml(ack.label || ("Section " + (index + 1)))}
+           </span>
+         </label>`;
+
+      list.appendChild(item);
+    }
+  );
+}
+
+function setAcknowledgement(index, checked){
+  guestEntries[currentGuestIndex]
+    .acknowledgements[index] = checked;
+}
+
+function finishAcknowledgements(){
+  const guest =
+    guestEntries[currentGuestIndex];
+
+  if(
+    guest.acknowledgements.some(
+      value => !value
+    )
+  ){
+    alert(
+      "Every section must be acknowledged."
+    );
+
+    return;
+  }
+
+  clearSignature("guestSignatureCanvas");
+
+  document.getElementById(
+    "guestSignatureTitle"
+  ).innerText =
+    "Guest " +
+    (currentGuestIndex + 1) +
+    " Signature";
+
+  showScreen("guestSignatureScreen");
+}
+
+function initializeSignatureCanvas(id){
+  const canvas =
+    document.getElementById(id);
+
+  if(!canvas) return;
+
+  const context =
+    canvas.getContext("2d");
+
+  context.lineWidth = 3;
+  context.lineCap = "round";
+  context.strokeStyle = "#000";
+
+  let drawing = false;
+
+  function point(event){
+    const rect =
+      canvas.getBoundingClientRect();
+
+    const source =
+      event.touches
+        ? event.touches[0]
+        : event;
+
+    return {
+      x:
+        (source.clientX - rect.left) *
+        (canvas.width / rect.width),
+
+      y:
+        (source.clientY - rect.top) *
+        (canvas.height / rect.height)
+    };
+  }
+
+  function start(event){
+    event.preventDefault();
+
+    drawing = true;
+
+    const p = point(event);
+
+    context.beginPath();
+    context.moveTo(p.x, p.y);
+  }
+
+  function move(event){
+    if(!drawing) return;
+
+    event.preventDefault();
+
+    const p = point(event);
+
+    context.lineTo(p.x, p.y);
+    context.stroke();
+  }
+
+  function end(event){
+    if(event) event.preventDefault();
+    drawing = false;
+  }
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", end);
+
+  canvas.addEventListener(
+    "touchstart",
+    start,
+    { passive: false }
+  );
+
+  canvas.addEventListener(
+    "touchmove",
+    move,
+    { passive: false }
+  );
+
+  canvas.addEventListener(
+    "touchend",
+    end,
+    { passive: false }
+  );
+}
+
+function clearSignature(id){
+  const canvas =
+    document.getElementById(id);
+
+  canvas.getContext("2d")
+    .clearRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+}
+
+function canvasHasInk(id){
+  const canvas =
+    document.getElementById(id);
+
+  const pixels =
+    canvas.getContext("2d")
+      .getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      ).data;
+
+  for(let i = 3;
+      i < pixels.length;
+      i += 4){
+
+    if(pixels[i] !== 0){
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function saveGuestSignature(){
+  if(!canvasHasInk(
+    "guestSignatureCanvas"
+  )){
+    alert("Please sign before continuing.");
+    return;
+  }
+
+  guestEntries[currentGuestIndex]
+    .guestSignature =
+      document.getElementById(
+        "guestSignatureCanvas"
+      ).toDataURL("image/png");
+
+  clearSignature(
+    "memberSignatureCanvas"
+  );
+
+  document.getElementById(
+    "memberSignatureTitle"
+  ).innerText =
+    "Member Signature for Guest " +
+    (currentGuestIndex + 1);
+
+  showScreen("memberSignatureScreen");
+}
+
+function saveMemberSignature(){
+  if(!canvasHasInk(
+    "memberSignatureCanvas"
+  )){
+    alert("Please sign before continuing.");
+    return;
+  }
+
+  guestEntries[currentGuestIndex]
+    .memberSignature =
+      document.getElementById(
+        "memberSignatureCanvas"
+      ).toDataURL("image/png");
+
+  clearSignature(
+    "witnessSignatureCanvas"
+  );
+
+  document.getElementById(
+    "witnessSignatureTitle"
+  ).innerText =
+    "Witness Signature for Guest " +
+    (currentGuestIndex + 1);
+
+  showScreen("witnessSignatureScreen");
+}
+
+function saveWitnessSignature(){
+  if(!canvasHasInk(
+    "witnessSignatureCanvas"
+  )){
+    alert("Please sign before continuing.");
+    return;
+  }
+
+  guestEntries[currentGuestIndex]
+    .witnessSignature =
+      document.getElementById(
+        "witnessSignatureCanvas"
+      ).toDataURL("image/png");
+
+  guestEntries[currentGuestIndex]
+    .waiverId =
+      generateWaiverId(memberId);
+
+  const nextIndex =
+    guestEntries.findIndex(
+      (guest, index) =>
+        index > currentGuestIndex &&
+        guest.mode === "new"
+    );
+
+  if(nextIndex !== -1){
+    currentGuestIndex = nextIndex;
+    openGuestDetails(nextIndex);
+    return;
+  }
+
+  finalizeGuestWaivers();
+}
+
+function generateWaiverId(sponsorId){
+  let suffix = "";
+
+  const random =
+    new Uint32Array(4);
+
+  crypto.getRandomValues(random);
+
+  for(let i = 0; i < 4; i++){
+    suffix +=
+      WAIVER_ID_ALPHABET[
+        random[i] %
+        WAIVER_ID_ALPHABET.length
+      ];
+  }
+
+  return (
+    String(sponsorId).trim() +
+    "-" +
+    suffix
+  );
+}
+
+async function finalizeGuestWaivers(){
+  showLoading(
+    "Creating and encrypting guest waiver..."
+  );
+
+  try {
+    const pdfBytes =
+      await createCompletedGroupPdf();
+
+    const encrypted =
+      await encryptWaiverPdf(pdfBytes);
+
+    completedWaiverPackage = {
+      guestGroupId,
+      waiverIds:
+        guestEntries.map(
+          guest => guest.waiverId
+        ),
+
+      sponsorMemberId:
+        memberId,
+
+      range:
+        currentRangeId,
+
+      guestCount:
+        guestCount,
+
+      waiverVersion,
+      encryptedKey:
+        encrypted.encryptedKey,
+
+      iv:
+        encrypted.iv,
+
+      hash:
+        encrypted.hash,
+
+      ciphertext:
+        encrypted.ciphertext
+    };
+
+    hideLoading();
+
+    if(waiverOnlyMode){
+      uploadStandaloneWaiver();
+    } else {
+      goNextCheckInStep();
+    }
+
+  } catch(error) {
+    hideLoading();
+
+    alert(
+      "The guest waiver could not be completed: " +
+      error.message
+    );
+  }
+}
+
+function showStandaloneReturningComplete(){
+  const verifiedIds = guestEntries
+    .map(guest => guest.waiverId)
+    .filter(Boolean);
+
+  let message =
+    "Waiver verification complete.";
+
+  if(verifiedIds.length){
+    message +=
+      "\n\nVerified Waiver ID" +
+      (verifiedIds.length > 1 ? "s" : "") +
+      ":\n" +
+      verifiedIds.join("\n");
+  }
+
+  showSuccess(message);
+  appendDoneButton();
+}
+
+function uploadStandaloneWaiver(){
+  if(!completedWaiverPackage){
+    alert("No completed waiver package was found.");
+    showScreen("home");
+    return;
+  }
+
+  showLoading("Uploading encrypted guest waiver...");
+
+  uploadWaiverPackage(completedWaiverPackage)
+    .then(() => {
+      showStandaloneWaiverSuccess(false);
+    })
+    .catch(() => {
+      queueSubmission({
+        queueType: "waiver",
+        payload: completedWaiverPackage
+      });
+
+      showStandaloneWaiverSuccess(true);
+    });
+}
+
+function showStandaloneWaiverSuccess(queued){
+  const newWaiverIds = guestEntries
+    .filter(guest =>
+      guest.waiverId &&
+      guest.guestSignature
+    )
+    .map(guest => guest.waiverId);
+
+  let message =
+    "Guest waiver completed successfully.";
+
+  if(newWaiverIds.length){
+    message +=
+      "\n\nGuest Waiver ID" +
+      (newWaiverIds.length > 1 ? "s" : "") +
+      ":\n" +
+      newWaiverIds.join("\n") +
+      "\n\nPlease save or photograph " +
+      (newWaiverIds.length > 1 ? "these IDs" : "this ID") +
+      " for future visits.";
+  }
+
+  if(queued){
+    message +=
+      "\n\nThe encrypted waiver has been saved and will upload when the connection returns.";
+  }
+
+  showSuccess(message);
+  appendDoneButton();
+}
+
+function appendDoneButton(){
+  const doneButton = document.createElement("button");
+  doneButton.innerText = "Done";
+  doneButton.style.fontSize = "22px";
+  doneButton.style.marginTop = "25px";
+  doneButton.onclick = () => location.reload();
+
+  document.getElementById("loading").appendChild(doneButton);
+}
+
+async function createCompletedGroupPdf(){
+  const {
+    PDFDocument,
+    rgb
+  } = PDFLib;
+
+  const groupDocument =
+    await PDFDocument.create();
+
+  for(const guest of guestEntries){
+    if(guest.mode === "returning"){
+      continue;
+    }
+
+    const document =
+  await PDFDocument.load(
+    // Each guest receives a fresh copy of the original PDF bytes.
+    waiverPdfBytes.slice()
+  );
+
+    const pages =
+      document.getPages();
+
+    const manifest =
+      waiverManifest.fields || {};
+
+    await stampTextFields(
+      document,
+      pages,
+      guest,
+      manifest,
+      rgb
+    );
+
+    await stampSignatures(
+      document,
+      pages,
+      guest,
+      manifest
+    );
+
+    const copiedPages =
+      await groupDocument.copyPages(
+        document,
+        document.getPageIndices()
+      );
+
+    copiedPages.forEach(page =>
+      groupDocument.addPage(page)
+    );
+  }
+
+  if(
+    groupDocument.getPageCount() === 0
+  ){
+    const page =
+      groupDocument.addPage([612, 792]);
+
+    page.drawText(
+      "All guests supplied previously verified waiver IDs.",
+      {
+        x: 60,
+        y: 720,
+        size: 14
+      }
+    );
+  }
+
+  return await groupDocument.save();
+}
+
+async function stampTextFields(
+  document,
+  pages,
+  guest,
+  fields,
+  rgb
+){
+  const dateText =
+    new Date().toLocaleDateString();
+
+  const rangeText =
+    currentRange
+      ? currentRange.name
+      : currentRangeId;
+
+  drawTextAtMany(
+    pages,
+    fields.initials || [],
+    guest.initials,
+    10,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.guestPrintedName,
+    guest.printedName,
+    10,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.guestTelephone,
+    guest.telephone,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.guestAddress,
+    guest.address,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.guestDate,
+    dateText,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.guestLocation,
+    rangeText,
+    9,
+    rgb
+  );
+
+  if(guest.guestType === "minor"){
+    drawTextAt(
+      pages,
+      fields.guestTypeMinor,
+      "X",
+      10,
+      rgb
+    );
+  } else {
+    drawTextAt(
+      pages,
+      fields.guestTypeGuest,
+      "X",
+      10,
+      rgb
+    );
+  }
+
+  drawTextAt(
+    pages,
+    fields.memberPrintedName,
+    guest.memberPrintedName,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.memberTelephone,
+    guest.memberTelephone,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.memberAddress,
+    guest.memberAddress,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.memberDate,
+    dateText,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.memberLocation,
+    rangeText,
+    9,
+    rgb
+  );
+
+  if(guest.memberSigningAs === "parent"){
+    drawTextAt(
+      pages,
+      fields.memberSigningAsParent,
+      "X",
+      10,
+      rgb
+    );
+  } else if(guest.memberSigningAs === "guardian"){
+    drawTextAt(
+      pages,
+      fields.memberSigningAsGuardian,
+      "X",
+      10,
+      rgb
+    );
+  } else {
+    drawTextAt(
+      pages,
+      fields.memberSigningAsHost,
+      "X",
+      10,
+      rgb
+    );
+  }
+
+  drawTextAtMany(
+    pages,
+    fields.witnessPrintedNames || [],
+    guest.witnessPrintedName,
+    9,
+    rgb
+  );
+
+  drawTextAt(
+    pages,
+    fields.waiverId,
+    guest.waiverId,
+    8,
+    rgb
+  );
+}
+  
+function drawTextAt(
+  pages,
+  location,
+  text,
+  defaultSize,
+  rgb
+){
+  if(!location || !text) return;
+
+  const page =
+    pages[Number(location.page) - 1];
+
+  if(!page) return;
+
+  page.drawText(
+    String(text),
+    {
+      x: Number(location.x),
+      y: Number(location.y),
+      size:
+        Number(location.size) ||
+        defaultSize,
+
+      color: rgb(0, 0, 0),
+      maxWidth:
+        location.maxWidth
+          ? Number(location.maxWidth)
+          : undefined
+    }
+  );
+}
+
+ function drawTextAtMany(
+  pages,
+  locations,
+  text,
+  defaultSize,
+  rgb
+){
+  if(!Array.isArray(locations)) return;
+
+  locations.forEach(location => {
+    drawTextAt(
+      pages,
+      location,
+      text,
+      defaultSize,
+      rgb
+    );
+  });
+}
+  
+async function stampSignatures(
+  document,
+  pages,
+  guest,
+  fields
+){
+  await drawSignatureAt(
+    document,
+    pages,
+    fields.guestSignature,
+    guest.guestSignature
+  );
+
+  await drawSignatureAt(
+    document,
+    pages,
+    fields.memberSignature,
+    guest.memberSignature
+  );
+
+  await drawSignatureAtMany(
+    document,
+    pages,
+    fields.witnessSignatures || [],
+    guest.witnessSignature
+  );
+}
+  
+async function drawSignatureAt(
+  document,
+  pages,
+  location,
+  dataUrl
+){
+  if(!location || !dataUrl) return;
+
+  const page =
+    pages[Number(location.page) - 1];
+
+  if(!page) return;
+
+  const bytes =
+    base64ToBytes(
+      dataUrl.split(",")[1]
+    );
+
+  const image =
+    await document.embedPng(bytes);
+
+  page.drawImage(
+    image,
+    {
+      x: Number(location.x),
+      y: Number(location.y),
+      width: Number(location.width),
+      height: Number(location.height)
+    }
+  );
+}
+
+async function drawSignatureAtMany(
+  document,
+  pages,
+  locations,
+  dataUrl
+){
+  if(!Array.isArray(locations)) return;
+
+  for(const location of locations){
+    await drawSignatureAt(
+      document,
+      pages,
+      location,
+      dataUrl
+    );
+  }
+}
+  
+async function encryptWaiverPdf(pdfBytes){
+  const publicKey =
+    await importRsaPublicKey(
+      waiverPublicKeyPem
+    );
+
+  const aesKey =
+    await crypto.subtle.generateKey(
+      {
+        name: "AES-GCM",
+        length: 256
+      },
+      true,
+      ["encrypt"]
+    );
+
+  const iv =
+    crypto.getRandomValues(
+      new Uint8Array(12)
+    );
+
+  const ciphertext =
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv
+      },
+      aesKey,
+      pdfBytes
+    );
+
+  const rawAesKey =
+    await crypto.subtle.exportKey(
+      "raw",
+      aesKey
+    );
+
+  const encryptedKey =
+    await crypto.subtle.encrypt(
+      {
+        name: "RSA-OAEP"
+      },
+      publicKey,
+      rawAesKey
+    );
+
+  const hash =
+    await crypto.subtle.digest(
+      "SHA-256",
+      pdfBytes
+    );
+
+  return {
+    encryptedKey:
+      arrayBufferToBase64(encryptedKey),
+
+    iv:
+      arrayBufferToBase64(iv),
+
+    hash:
+      arrayBufferToHex(hash),
+
+    ciphertext:
+      arrayBufferToBase64(ciphertext)
+  };
+}
+
+async function importRsaPublicKey(pem){
+  const clean =
+    pem
+      .replace(
+        "-----BEGIN PUBLIC KEY-----",
+        ""
+      )
+      .replace(
+        "-----END PUBLIC KEY-----",
+        ""
+      )
+      .replace(/\s/g, "");
+
+  const der =
+    base64ToBytes(clean);
+
+  return await crypto.subtle.importKey(
+    "spki",
+    der.buffer,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256"
+    },
+    false,
+    ["encrypt"]
+  );
+}
+
+function goNextCheckInStep(){
+  if(
+    currentRange.rows &&
+    currentRange.rows.length > 0
+  ){
+    showScreen("positions");
+    return;
+  }
+
+  if(currentRange.ammo){
+    goSupplies();
+    return;
+  }
+
+  submitCheckIn();
+}
+
+function goAfterPositions(){
+  if(currentRange.ammo){
+    goSupplies();
+  } else {
+    submitCheckIn();
+  }
+}
+
+function goSupplies(){
+  showLoading("Please wait...");
+
+  setTimeout(() => {
+    buildSupplies();
+    hideLoading();
+    showScreen("supplies");
+  }, 200);
+}
+
+function buildSubmitUrl(item){
+  return API +
+    "?key=" + encodeURIComponent(API_KEY) +
+    "&action=submit" +
+    "&range=" +
+      encodeURIComponent(
+        item.range || currentRangeId
+      ) +
+    "&memberId=" +
+      encodeURIComponent(item.memberId) +
+    "&positions=" +
+      encodeURIComponent(
+        item.positions || ""
+      ) +
+    "&supplies=" +
+      encodeURIComponent(
+        item.supplies || ""
+      ) +
+    "&type=" +
+      encodeURIComponent(item.type) +
+    "&queued=" +
+      encodeURIComponent(
+        item.queued || ""
+      ) +
+    "&clientId=" +
+      encodeURIComponent(
+        item.clientId || ""
+      ) +
+    "&hasGuests=" +
+      encodeURIComponent(
+        item.hasGuests ? "true" : "false"
+      ) +
+    "&guestCount=" +
+      encodeURIComponent(
+        item.guestCount || 0
+      ) +
+    "&guestGroupId=" +
+      encodeURIComponent(
+        item.guestGroupId || ""
+      ) +
+    "&waiverIds=" +
+      encodeURIComponent(
+        item.waiverIds || ""
+      ) +
+    "&waiverUploaded=" +
+      encodeURIComponent(
+        item.waiverUploaded
+          ? "true"
+          : "false"
+      );
+}
+
+function getQueue(){
+  try {
+    return JSON.parse(
+      localStorage.getItem(
+        "offlineQueue"
+      ) || "[]"
+    );
+  } catch(error) {
+    return [];
+  }
+}
+
+function saveQueue(queue){
+  localStorage.setItem(
+    "offlineQueue",
+    JSON.stringify(queue)
+  );
+
+  updateQueueStatus();
+}
+
+function getFailedQueue(){
+  try {
+    return JSON.parse(
+      localStorage.getItem("failedQueue") || "[]"
+    );
+  } catch(error) {
+    return [];
+  }
+}
+
+function saveFailedQueue(queue){
+  localStorage.setItem(
+    "failedQueue",
+    JSON.stringify(queue)
+  );
+  updateQueueStatus();
+}
+
+function queueSubmission(item){
+  const queue = getQueue();
+
+  if(!item.clientId){
+    item.clientId =
+      createClientId();
+  }
+
+  queue.push(item);
+  saveQueue(queue);
+}
+
+function createClientId(){
+  return (
+    "client_" +
+    Date.now() +
+    "_" +
+    Math.floor(
+      Math.random() * 1000000
+    )
+  );
+}
+
+function updateQueueStatus(){
+  const pending = getQueue().length;
+  const failed = getFailedQueue().length;
+
+  const parts = [];
+  if(pending) parts.push("Pending uploads: " + pending);
+  if(failed) parts.push("SYNC ERROR: " + failed);
+
+  document.getElementById("queueStatus").innerText =
+    parts.join(" | ");
+}
+
+function sendSubmission(item){
+  return fetchWithTimeout(
+    buildSubmitUrl(item),
+    SUBMIT_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(result => {
+    if(result.error){
+      const error = new Error(result.error);
+      error.logical = true;
+      throw error;
+    }
+    return result;
+  });
+}
+
+function syncQueue(){
+  const queue = getQueue();
+
+  if(!queue.length || !navigator.onLine){
+    updateQueueStatus();
+    return;
+  }
+
+  const item = queue[0];
+  const process =
+    item.queueType === "waiver"
+      ? uploadWaiverPackage(item.payload)
+      : sendSubmission(item);
+
+  process
+    .then(() => {
+      backendOnline = true;
+      refreshConnectionStatus();
+      queue.shift();
+      saveQueue(queue);
+      setTimeout(syncQueue, 100);
+    })
+    .catch(error => {
+      // A server/logical rejection should never block every later item
+      // forever. Preserve it in failedQueue for review, remove it from
+      // the active queue, and continue. Network failures remain pending.
+      if(error && error.logical){
+        const failed = getFailedQueue();
+        failed.push({
+          failedAt: new Date().toISOString(),
+          error: String(error.message || error),
+          item
+        });
+        saveFailedQueue(failed);
+        queue.shift();
+        saveQueue(queue);
+        backendOnline = true;
+        refreshConnectionStatus();
+        setTimeout(syncQueue, 100);
+        return;
+      }
+
+      backendOnline = false;
+      refreshConnectionStatus();
+      updateQueueStatus();
+    });
+}
+
+function submitCheckIn(){
+  if(submitting) return;
+
+  submitting = true;
+  showLoading("Submitting check-in...");
+
+  const supplies = [];
+
+  document.querySelectorAll(
+    "#supplyLines input"
+  ).forEach(input => {
+    if(input.value.trim()){
+      supplies.push(input.value.trim());
+    }
+  });
+
+  const waiverIds =
+    guestEntries
+      .map(guest => guest.waiverId)
+      .filter(Boolean);
+
+  const item = {
+    range: currentRangeId,
+    memberId,
+    positions:
+      selectedPositions.join(","),
+
+    supplies:
+      supplies.join(","),
+
+    type: "IN",
+    queued: "",
+    clientId: createClientId(),
+    hasGuests,
+    guestCount,
+    guestGroupId:
+      hasGuests ? guestGroupId : "",
+
+    waiverIds:
+      waiverIds.join(","),
+
+    waiverUploaded: false
+  };
+
+  sendSubmission(item)
+    .then(result => {
+      if(
+        completedWaiverPackage
+      ){
+        return uploadWaiverPackage(
+          completedWaiverPackage
+        )
+        .then(() => ({
+          result,
+          waiverUploaded: true
+        }))
+        .catch(error => {
+          queueSubmission({
+            queueType: "waiver",
+            payload:
+              completedWaiverPackage
+          });
+
+          return {
+            result,
+            waiverUploaded: false,
+            waiverQueued: true
+          };
+        });
+      }
+
+      return {
+        result,
+        waiverUploaded: false
+      };
+    })
+    .then(outcome => {
+      const newWaiverIds =
+  guestEntries
+    .filter(guest =>
+      guest.waiverId &&
+      guest.guestSignature
+    )
+    .map(guest => guest.waiverId);
+
+let message =
+  "Check-in successful.\n\n" +
+  "Please remember to check out before leaving.";
+
+if(newWaiverIds.length > 0){
+  message +=
+    "\n\nGuest Waiver ID" +
+    (newWaiverIds.length > 1 ? "s" : "") +
+    ":\n" +
+    newWaiverIds.join("\n") +
+    "\n\nPlease save or photograph " +
+    (newWaiverIds.length > 1 ? "these IDs" : "this ID") +
+    " for future visits.";
+}
+
+      if(
+        outcome.result.autoCheckout &&
+        outcome.result.autoCheckout.rangeName
+      ){
+        message =
+          "Checked out from " +
+          outcome.result.autoCheckout.rangeName +
+          ".\n\n" +
+          message;
+      }
+
+      if(outcome.waiverQueued){
+        message +=
+          "\n\nThe encrypted guest waiver " +
+          "has been saved and will upload " +
+          "when the connection is available.";
+      }
+
+      showSuccess(message);
+
+      if(newWaiverIds.length > 0){
+  const doneButton = document.createElement("button");
+  doneButton.innerText = "Done";
+  doneButton.style.fontSize = "22px";
+  doneButton.style.marginTop = "25px";
+  doneButton.onclick = () => location.reload();
+
+  document.getElementById("loading").appendChild(doneButton);
+} else {
+  setTimeout(
+    () => location.reload(),
+    3500
+  );
+}
+    })
+    .catch(error => {
+      if(
+        !navigator.onLine ||
+        String(error.message)
+          .includes("Failed to fetch") ||
+        String(error.message)
+          .includes("timeout") ||
+        String(error.name)
+          .includes("AbortError")
+      ){
+        item.queued =
+          new Date().toISOString();
+
+        queueSubmission(item);
+
+        if(completedWaiverPackage){
+          queueSubmission({
+            queueType: "waiver",
+            payload:
+              completedWaiverPackage
+          });
+        }
+
+        showSuccess(
+          "Check-in saved.\n\n" +
+          "It will upload when the connection returns.\n\n" +
+          "Please remember to check out before leaving."
+        );
+
+        setTimeout(
+          () => location.reload(),
+          4000
+        );
+
+      } else {
+        submitting = false;
+        hideLoading();
+        setStatus(
+          error.message || "Error"
+        );
+      }
+    });
+}
+
+function uploadWaiverPackage(payload){
+  return fetchWithTimeout(
+    API,
+    WAIVER_UPLOAD_TIMEOUT_MS,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    }
+  )
+  .then(response => response.json())
+  .then(result => {
+    if(!result.success){
+      throw new Error(
+        result.error ||
+        "Waiver upload failed"
+      );
+    }
+
+    return result;
+  });
+}
+
+function startCheckOut(){
+  if(!currentRange){
+    showScreen("badRange");
+    return;
+  }
+
+  showLoading("Loading active users...");
+
+  loadActiveUsers()
+    .then(() => {
+      hideLoading();
+
+      const container =
+        document.getElementById(
+          "activeUsers"
+        );
+
+      container.innerHTML = "";
+
+      if(activeUsers.length === 0){
+        container.innerHTML =
+          "<p>No active users</p>";
+
+        showScreen("checkout");
+
+        setTimeout(
+          () => location.reload(),
+          3000
+        );
+
+        return;
+      }
+
+      activeUsers.forEach(id => {
+        const button =
+          document.createElement(
+            "button"
+          );
+
+        button.innerText = id;
+        button.onclick =
+          () => checkout(id);
+
+        container.appendChild(button);
+      });
+
+      showScreen("checkout");
+    });
+}
+
+function checkout(id){
+  if(checkingOut) return;
+
+  checkingOut = true;
+  showLoading("Checking out...");
+
+  const item = {
+    range: currentRangeId,
+    memberId: String(id),
+    positions: "",
+    supplies: "",
+    type: "OUT",
+    queued: "",
+    clientId: createClientId(),
+    hasGuests: false,
+    guestCount: 0,
+    guestGroupId: "",
+    waiverIds: "",
+    waiverUploaded: false
+  };
+
+  sendSubmission(item)
+    .then(() => {
+      showSuccess(
+        "Check-out successful."
+      );
+
+      setTimeout(
+        () => location.reload(),
+        2000
+      );
+    })
+    .catch(error => {
+      if(
+        !navigator.onLine ||
+        String(error.message)
+          .includes("Failed to fetch") ||
+        String(error.message)
+          .includes("timeout") ||
+        String(error.name)
+          .includes("AbortError")
+      ){
+        item.queued =
+          new Date().toISOString();
+
+        queueSubmission(item);
+
+        showSuccess(
+          "Check-out saved.\n\n" +
+          "It will upload when the connection returns."
+        );
+
+        setTimeout(
+          () => location.reload(),
+          3000
+        );
+
+      } else {
+        checkingOut = false;
+        hideLoading();
+
+        setStatus(
+          error.message || "Error"
+        );
+      }
+    });
+}
+
+function bytesToBase64(bytes){
+  let binary = "";
+
+  const chunkSize = 0x8000;
+
+  for(let i = 0;
+      i < bytes.length;
+      i += chunkSize){
+
+    binary += String.fromCharCode.apply(
+      null,
+      bytes.subarray(
+        i,
+        Math.min(
+          i + chunkSize,
+          bytes.length
+        )
+      )
+    );
+  }
+
+  return btoa(binary);
+}
+
+function arrayBufferToBase64(buffer){
+  return bytesToBase64(
+    new Uint8Array(buffer)
+  );
+}
+
+function base64ToBytes(base64){
+  const binary = atob(base64);
+  const bytes =
+    new Uint8Array(binary.length);
+
+  for(let i = 0;
+      i < binary.length;
+      i++){
+
+    bytes[i] =
+      binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+function arrayBufferToHex(buffer){
+  return Array
+    .from(new Uint8Array(buffer))
+    .map(byte =>
+      byte.toString(16)
+        .padStart(2, "0")
+    )
+    .join("");
+}
+
+
+function refreshWaiverButtonVisibility(){
+  const button =
+    document.getElementById("guestWaiverButton");
+
+  if(!button) return;
+
+  if(currentRangeId !== "procter"){
+    button.style.display = "none";
+    return;
+  }
+
+  fetch(
+    WAIVER_MARKER_FILE +
+    "?ts=" + Date.now(),
+    { cache: "no-store" }
+  )
+  .then(response => {
+    button.style.display =
+      response.ok ? "inline-block" : "none";
+  })
+  .catch(() => {
+    button.style.display = "none";
+  });
+}
+
+function goHome(){
+  hideLoading();
+  resetTransactionState();
+  buildPositions();
+  showScreen("home");
+  refreshWaiverButtonVisibility();
+  refreshRangeAvailability();
+  resetTimer();
+}
+
+function resetTransactionState(){
+  memberId = "";
+  selectedPositions = [];
+  submitting = false;
+  checkingOut = false;
+  hasGuests = false;
+  guestCount = 0;
+  guestGroupId = "";
+  guestEntries = [];
+  currentGuestIndex = 0;
+  completedWaiverPackage = null;
+  waiverOnlyMode = false;
+  pendingMemberStatusResult = null;
+
+  const ids = [
+    "memberInput",
+    "waiverSponsorMemberInput",
+    "guestPrintedName",
+    "guestTelephone",
+    "guestAddress",
+    "guestInitials",
+    "memberPrintedName",
+    "memberTelephone",
+    "memberAddress",
+    "witnessPrintedName"
+  ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+
+  const hasGuestsBox =
+    document.getElementById("hasGuests");
+
+  if(hasGuestsBox){
+    hasGuestsBox.checked = false;
+  }
+
+  const guestCountInput =
+    document.getElementById("guestCount");
+
+  if(guestCountInput){
+    guestCountInput.value = "1";
+  }
+
+  const standaloneCount =
+    document.getElementById("standaloneGuestCount");
+
+  if(standaloneCount){
+    standaloneCount.value = "1";
+  }
+
+  toggleGuestCount();
+
+  [
+    "guestSignatureCanvas",
+    "memberSignatureCanvas",
+    "witnessSignatureCanvas"
+  ].forEach(id => {
+    const canvas = document.getElementById(id);
+    if(canvas){
+      clearSignature(id);
+    }
+  });
+
+  const pdfContainer =
+    document.getElementById("waiverPdfContainer");
+
+  if(pdfContainer){
+    pdfContainer.innerHTML = "";
+  }
+
+  const guestSetup =
+    document.getElementById("guestSetupCards");
+
+  if(guestSetup){
+    guestSetup.innerHTML = "";
+  }
+
+  const supplyLines =
+    document.getElementById("supplyLines");
+
+  if(supplyLines){
+    supplyLines.innerHTML = "";
+  }
+}
+
+function showForgottenWarning(warning){
+  const checkInText =
+    formatKioskDateTime(warning.checkInTime);
+
+  const autoOutText =
+    formatKioskDateTime(warning.autoCheckoutTime);
+
+  let reasonText =
+    "because you did not check out before the range closed";
+
+  if(warning.reason === "SIX_HOUR_LIMIT"){
+    reasonText =
+      "after your session had remained open for more than six hours";
+  }
+
+  document.getElementById(
+    "forgottenWarningText"
+  ).innerText =
+    "You checked in to " +
+    (warning.rangeName || warning.range) +
+    " on " + checkInText +
+    " and did not check out.\n\n" +
+    "You were automatically checked out on " +
+    autoOutText + " " + reasonText + ".\n\n" +
+    "Please remember to check out when leaving.";
+
+  showScreen("forgottenWarning");
+}
+
+function acknowledgeForgottenWarning(){
+  if(
+    !pendingMemberStatusResult ||
+    !pendingMemberStatusResult.forgottenWarning
+  ){
+    processMemberStatusResult(
+      pendingMemberStatusResult
+    );
+    return;
+  }
+
+  const warning =
+    pendingMemberStatusResult.forgottenWarning;
+
+  showLoading("Saving acknowledgement...");
+
+  fetchWithTimeout(
+    API +
+      "?key=" + encodeURIComponent(API_KEY) +
+      "&action=ackForgotten" +
+      "&eventId=" + encodeURIComponent(warning.eventId) +
+      "&memberId=" + encodeURIComponent(memberId),
+    ACTIVE_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(result => {
+    hideLoading();
+
+    if(!result.success){
+      throw new Error(
+        result.error ||
+        "Could not save acknowledgement"
+      );
+    }
+
+    const saved = pendingMemberStatusResult;
+    saved.forgottenWarning = null;
+    pendingMemberStatusResult = null;
+    processMemberStatusResult(saved);
+  })
+  .catch(error => {
+    hideLoading();
+    alert(
+      "The reminder could not be acknowledged. " +
+      "Please try again."
+    );
+  });
+}
+
+function formatKioskDateTime(value){
+  if(!value) return "an unknown time";
+
+  const date = new Date(value);
+
+  if(isNaN(date.getTime())){
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: RANGE_TIME_ZONE,
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }
+  ).format(date);
+}
+
+function refreshConnectionStatus(){
+  const el = document.getElementById("connectionStatus");
+  if(!el) return;
+
+  if(testMode){
+    el.innerText = "TEST MODE — Health reporting disabled";
+    return;
+  }
+
+  if(!navigator.onLine){
+    el.innerText = "Offline";
+    return;
+  }
+
+  el.innerText = backendOnline ? "Online" : "Checking connection...";
+}
+
+function getQueueCounts(){
+  const queue = getQueue();
+  const failed = getFailedQueue();
+  let checkinQueue = 0;
+  let waiverQueue = 0;
+
+  function countItem(item){
+    const actual = item && item.item ? item.item : item;
+    if(actual && actual.queueType === "waiver") waiverQueue++;
+    else checkinQueue++;
+  }
+
+  queue.forEach(countItem);
+  failed.forEach(countItem);
+
+  return { checkinQueue, waiverQueue };
+}
+
+function sendHeartbeat(){
+  if(testMode){
+    refreshConnectionStatus();
+    return;
+  }
+
+  if(
+    !currentRangeId ||
+    !config[currentRangeId] ||
+    !navigator.onLine
+  ){
+    backendOnline = false;
+    refreshConnectionStatus();
+    return;
+  }
+
+  const counts = getQueueCounts();
+
+  const url =
+    API +
+    "?key=" + encodeURIComponent(API_KEY) +
+    "&action=heartbeat" +
+    "&range=" + encodeURIComponent(currentRangeId) +
+    "&online=true" +
+    "&checkinQueue=" + counts.checkinQueue +
+    "&waiverQueue=" + counts.waiverQueue +
+    "&version=" + encodeURIComponent(KIOSK_VERSION) +
+    "&userAgent=" + encodeURIComponent(navigator.userAgent);
+
+  fetchWithTimeout(
+    url,
+    CONFIG_TIMEOUT_MS
+  )
+  .then(response => response.json())
+  .then(result => {
+    backendOnline = !!result.success;
+    refreshConnectionStatus();
+  })
+  .catch(() => {
+    backendOnline = false;
+    refreshConnectionStatus();
+  });
+}
+
+function refreshRangeAvailability(){
+  if(
+    !currentRangeId ||
+    !currentRange
+  ){
+    return;
+  }
+
+  const status =
+    calculateLocalRangeStatus(new Date());
+
+  const actions =
+    document.getElementById("homeActions");
+
+  const closed =
+    document.getElementById("closedMessage");
+
+  if(status.open){
+    if(actions) actions.style.display = "block";
+    if(closed) closed.style.display = "none";
+  } else {
+    if(actions) actions.style.display = "none";
+    if(closed) closed.style.display = "block";
+
+    const currentScreen = getVisibleScreenId();
+
+    if(
+      currentScreen &&
+      currentScreen !== "home" &&
+      currentScreen !== "badRange"
+    ){
+      hideLoading();
+      resetTransactionState();
+      showScreen("home");
+    }
+  }
+
+  if(
+    lastRangeOpenState !== null &&
+    lastRangeOpenState === true &&
+    status.open === false
+  ){
+    requestImmediateRangeEnforcement();
+  }
+
+  if(
+    lastRangeOpenState === null &&
+    status.open === false
+  ){
+    requestImmediateRangeEnforcement();
+  }
+
+  lastRangeOpenState = status.open;
+}
+
+function getVisibleScreenId(){
+  const screens =
+    Array.from(
+      document.querySelectorAll(".screen")
+    );
+
+  const visible = screens.find(screen =>
+    getComputedStyle(screen).display !== "none"
+  );
+
+  return visible ? visible.id : "";
+}
+
+function requestImmediateRangeEnforcement(){
+  if(!navigator.onLine) return;
+
+  fetchWithTimeout(
+    API +
+      "?key=" + encodeURIComponent(API_KEY) +
+      "&action=enforceRange" +
+      "&range=" + encodeURIComponent(currentRangeId),
+    ACTIVE_TIMEOUT_MS
+  ).catch(() => {});
+}
+
+function calculateLocalRangeStatus(now){
+  if(RANGE_HOURS_EXEMPT.includes(currentRangeId)){
+    return {
+      open: true,
+      exempt: true
+    };
+  }
+
+  const parts =
+    getRangeLocalParts(now);
+
+  if(parts.hour < NORMAL_OPEN_HOUR){
+    return {
+      open: false,
+      reason: "BEFORE_OPEN"
+    };
+  }
+
+  const sunset = calculateSunsetUtc(
+    parts.year,
+    parts.month,
+    parts.day,
+    RANGE_LATITUDE,
+    RANGE_LONGITUDE
+  );
+
+  const closeTime =
+    new Date(
+      sunset.getTime() +
+      SUNSET_GRACE_MINUTES * 60000
+    );
+
+  return {
+    open: now.getTime() < closeTime.getTime(),
+    reason:
+      now.getTime() < closeTime.getTime()
+        ? "OPEN"
+        : "AFTER_CLOSE",
+    sunset,
+    closeTime
+  };
+}
+
+function getRangeLocalParts(date){
+  const formatter =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone: RANGE_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+      }
+    );
+
+  const values = {};
+
+  formatter.formatToParts(date)
+    .forEach(part => {
+      if(part.type !== "literal"){
+        values[part.type] = part.value;
+      }
+    });
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second)
+  };
+}
+
+function calculateSunsetUtc(
+  year,
+  month,
+  day,
+  latitude,
+  longitude
+){
+  const date =
+    new Date(Date.UTC(year, month - 1, day));
+
+  const start =
+    new Date(Date.UTC(year, 0, 0));
+
+  const dayOfYear =
+    Math.floor(
+      (date.getTime() - start.getTime()) /
+      86400000
+    );
+
+  const lngHour = longitude / 15;
+  const t =
+    dayOfYear +
+    ((18 - lngHour) / 24);
+
+  const M =
+    (0.9856 * t) - 3.289;
+
+  let L =
+    M +
+    (1.916 * Math.sin(toRadians(M))) +
+    (0.020 * Math.sin(toRadians(2 * M))) +
+    282.634;
+
+  L = normalizeDegrees(L);
+
+  let RA =
+    toDegrees(
+      Math.atan(
+        0.91764 *
+        Math.tan(toRadians(L))
+      )
+    );
+
+  RA = normalizeDegrees(RA);
+
+  const Lquadrant =
+    Math.floor(L / 90) * 90;
+
+  const RAquadrant =
+    Math.floor(RA / 90) * 90;
+
+  RA =
+    RA +
+    (Lquadrant - RAquadrant);
+
+  RA = RA / 15;
+
+  const sinDec =
+    0.39782 *
+    Math.sin(toRadians(L));
+
+  const cosDec =
+    Math.cos(Math.asin(sinDec));
+
+  const cosH =
+    (
+      Math.cos(toRadians(90.833)) -
+      (sinDec * Math.sin(toRadians(latitude)))
+    ) /
+    (
+      cosDec * Math.cos(toRadians(latitude))
+    );
+
+  if(cosH < -1 || cosH > 1){
+    return new Date(
+      Date.UTC(year, month - 1, day, 23, 59, 59)
+    );
+  }
+
+  const H =
+    toDegrees(Math.acos(cosH)) / 15;
+
+  const T =
+    H +
+    RA -
+    (0.06571 * t) -
+    6.622;
+
+  let UT = T - lngHour;
+
+  while(UT < 0) UT += 24;
+  while(UT >= 24) UT -= 24;
+
+  return new Date(
+    Date.UTC(year, month - 1, day) +
+    Math.round(UT * 3600000)
+  );
+}
+
+function normalizeDegrees(value){
+  let result = value % 360;
+  if(result < 0) result += 360;
+  return result;
+}
+
+function toRadians(degrees){
+  return degrees * Math.PI / 180;
+}
+
+function toDegrees(radians){
+  return radians * 180 / Math.PI;
+}
+
+let idle = 60;
+
+setInterval(() => {
+  idle--;
+
+  document.getElementById(
+    "timer"
+  ).innerText =
+    "Reset in " + idle + "s";
+
+  if(idle <= 0){
+    location.reload();
+  }
+}, 1000);
+
+function resetTimer(){
+  idle = 60;
+}
+
+document.onclick = resetTimer;
+document.onmousemove = resetTimer;
+document.onkeypress = resetTimer;
+document.ontouchstart = resetTimer;
+</script>
+
+</body>
+</html>
