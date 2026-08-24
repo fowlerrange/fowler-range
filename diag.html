@@ -12,19 +12,27 @@ body {
   font-size: 18px;
 }
 
-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
+.item {
   background: #f3f3f3;
   padding: 12px;
   border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.item strong {
+  font-size: 20px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
   font-size: 14px;
+  margin-bottom: 0;
 }
 
 button {
   font-size: 18px;
   padding: 10px 16px;
-  margin: 5px;
 }
 </style>
 </head>
@@ -33,13 +41,9 @@ button {
 
 <h2>Fowler Kiosk Queue Diagnostic</h2>
 
-<div id="summary"></div>
+<h3 id="summary"></h3>
 
-<h3>First queued item</h3>
-<pre id="first"></pre>
-
-<h3>Last queued item</h3>
-<pre id="last"></pre>
+<div id="items"></div>
 
 <button onclick="refresh()">Refresh</button>
 
@@ -57,18 +61,31 @@ function refresh() {
     return;
   }
 
-  document.getElementById("summary").innerHTML =
-    "<b>Pending items:</b> " + queue.length;
+  document.getElementById("summary").innerText =
+    "Pending items: " + queue.length;
 
-  document.getElementById("first").innerText =
-    queue.length
-      ? JSON.stringify(queue[0], null, 2)
-      : "Queue is empty.";
+  const container = document.getElementById("items");
+  container.innerHTML = "";
 
-  document.getElementById("last").innerText =
-    queue.length
-      ? JSON.stringify(queue[queue.length - 1], null, 2)
-      : "Queue is empty.";
+  queue.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.className = "item";
+
+    div.innerHTML =
+      "<strong>Queue item " + (index + 1) + "</strong>" +
+      "<pre>" +
+      escapeHtml(JSON.stringify(item, null, 2)) +
+      "</pre>";
+
+    container.appendChild(div);
+  });
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 refresh();
