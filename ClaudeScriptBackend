@@ -1,0 +1,1702 @@
+const SHEET_NAME = "Checkins";
+const MEMBERS_SHEET = "Members";
+const GUEST_WAIVERS_SHEET = "GuestWaivers";
+const API_KEY = "yyy";
+
+const WAIVER_FOLDER_NAME = "Encrypted Guest Waivers";
+const BACKUP_FOLDER_NAME = "Fowler Range Backups";
+const FORGOTTEN_SHEET = "ForgottenCheckouts";
+const TABLET_HEALTH_SHEET = "TabletHealth";
+const ALERT_RECIPIENTS_SHEET = "AlertRecipients";
+
+const RANGE_LATITUDE = 42.80514979316717;
+const RANGE_LONGITUDE = -71.49103129523984;
+const RANGE_TIME_ZONE = "America/New_York";
+const NORMAL_OPEN_HOUR = 8;
+const SUNSET_GRACE_MINUTES = 30;
+const EXEMPT_RANGE_IDS = ["procter", "archery"];
+const EXEMPT_MAX_SESSION_HOURS = 6;
+
+// Only the most recent N rows of the Checkins sheet are scanned when looking
+// for open sessions and duplicate client IDs. The dashboard still scans the
+// full date range it is asked for.
+const RECENT_ROWS = 250;
+
+// The kiosks compare this to their own KIOSK_VERSION on every heartbeat.
+// After you host a new kiosk HTML file, bump this value to make idle kiosks
+// reload and pick it up. Each kiosk reloads at most once per version.
+const LATEST_KIOSK_VERSION = "2.2";
+
+// Checkins:
+// Timestamp | Range | MemberID | Positions | Supplies | Action | SessionID
+// | Queued | ClientID | HasGuests | GuestCount | GuestGroupID
+// | WaiverIDs | WaiverUploaded
+
+// GuestWaivers:
+// Timestamp | WaiverID | GuestGroupID | SponsorMemberID | Range
+// | GuestCount | WaiverVersion | EncryptedFilename | EncryptedKey
+// | IV | Hash | UploadStatus
+
+const RANGE_CONFIG = {
+  corsetti: {
+    id: "corsetti",
+    name: "Corsetti Range",
+    ammo: true,
+    rows: [
+      { label: "Position", start: 1, count: 5 }
+    ]
+  },
+
+  fowler: {
+    id: "fowler",
+    name: "Fowler Range",
+    ammo: true,
+    rows: [
+      { label: "25 Yards", start: 1, count: 9 },
+      { label: "50 Yards", start: 10, count: 8 },
+      { label: "100 Yards", start: 35, count: 8 }
+    ]
+  },
+
+  leveridge: {
+    id: "leveridge",
+    name: "Leveridge Range",
+    ammo: true,
+    rows: [
+      { label: "200", start: 1, count: 16 },
+      { label: "300", start: 1, count: 16 },
+      { label: "500", start: 1, count: 16 },
+      { label: "600", start: 1, count: 16 }
+    ]
+  },
+
+  archery: {
+    id: "archery",
+    name: "Archery & Primitive Skills",
+    ammo: false,
+    rows: []
+  },
+
+  procter: {
+    id: "procter",
+    name: "Procter Range",
+    ammo: true,
+    rows: [
+      { label: "Position", start: 1, count: 10 }
+    ]
+  },
+
+  stark: {
+    id: "stark",
+    name: "Stark Range",
+    ammo: false,
+    rows: []
+  },
+
+  swiss: {
+    id: "swiss",
+    name: "Swiss Range",
+    ammo: true,
+    rows: []
+  },
+
+  valade: {
+    id: "valade",
+    name: "Valade Clubhouse",
+    ammo: false,
+    rows: []
+  },
+
+  veterans: {
+    id: "veterans",
+    name: "Veterans Range",
+    ammo: true,
+    rows: []
+  }
+};
+
+// ============================================================
+// GET ROUTER
+// ============================================================
+function doGet(e) {
+  try {
+    return routeGet(e);
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      error: String(error && error.message ? error.message : error)
+    });
+  }
+}
+
+function routeGet(e) {
+  const action = String(e.parameter.action || "");
+
+  if (action === "config") {
+    return jsonResponse(RANGE_CONFIG);
+  }
+
+  if (action === "members") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return getMembers();
+  }
+
+  if (action === "active") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return jsonResponse(
+      getActiveArray(e.parameter.range || "")
+    );
+  }
+
+  if (action === "memberStatus") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return jsonResponse(
+      getMemberStatus(e.parameter.memberId)
+    );
+  }
+
+  if (action === "ackForgotten") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return jsonResponse(acknowledgeForgottenCheckout(e.parameter.eventId, e.parameter.memberId));
+  }
+
+  if (action === "rangeStatus") {
+    return jsonResponse(getRangeStatus(e.parameter.range || ""));
+  }
+
+  if (action === "enforceRange") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return jsonResponse(enforceRangeRulesForRange(e.parameter.range || ""));
+  }
+
+  if (action === "heartbeat") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return jsonResponse(recordTabletHeartbeat(e));
+  }
+
+  if (action === "waiverLookup") {
+    return jsonResponse(
+      lookupWaiver(e.parameter.waiverId)
+    );
+  }
+
+  if (action === "waiverStatus") {
+    return jsonpOrJson(
+      getWaiverUploadStatus(e.parameter.groupId),
+      e.parameter.cb
+    );
+  }
+
+  if (action === "submit") {
+    if (!validApiKey(e)) {
+      return jsonResponse({ success: false, error: "Unauthorized" });
+    }
+    return handleSubmit(e);
+  }
+
+  if (action === "dashboard") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    const days = parseInt(e.parameter.days || "1", 10);
+
+    return jsonpOrJson(
+      getDashboard(days),
+      e.parameter.cb
+    );
+  }
+
+  if (action === "adminActive") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    return jsonpOrJson(
+      getActiveGroupedByRange(),
+      e.parameter.cb
+    );
+  }
+
+  if (action === "adminForceCheckout") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    return jsonpOrJson(
+      adminForceCheckout(e.parameter.memberId),
+      e.parameter.cb
+    );
+  }
+
+  if (action === "adminClearRange") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    return jsonpOrJson(
+      adminClearRange(e.parameter.range),
+      e.parameter.cb
+    );
+  }
+
+  if (action === "adminClearAll") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    return jsonpOrJson(
+      adminClearAll(),
+      e.parameter.cb
+    );
+  }
+
+  if (action === "adminBackupNow") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    backupSheet();
+
+    return jsonpOrJson(
+      { success: true },
+      e.parameter.cb
+    );
+  }
+
+  if (action === "adminLogs") {
+    if (!validApiKey(e)) {
+      return unauthorizedResponse(e.parameter.cb);
+    }
+
+    return jsonpOrJson(
+      adminLogs(100),
+      e.parameter.cb
+    );
+  }
+
+  return ContentService.createTextOutput("Invalid");
+}
+
+// ============================================================
+// POST ROUTER — ENCRYPTED WAIVER UPLOAD
+// ============================================================
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+  } catch (lockError) {
+    return jsonResponse({
+      success: false,
+      error: "Server busy, please retry"
+    });
+  }
+
+  try {
+    const payloadText =
+      (e.parameter && e.parameter.payload) ||
+      (e.postData && e.postData.contents) ||
+      "";
+
+    if (!payloadText) {
+      return jsonResponse({
+        success: false,
+        error: "Missing payload"
+      });
+    }
+
+    const payload =
+      typeof payloadText === "string"
+        ? JSON.parse(payloadText)
+        : payloadText;
+
+    const result = saveEncryptedWaiverPackage(payload);
+
+    return jsonResponse(result);
+
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      error: String(error && error.message
+        ? error.message
+        : error)
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================================
+// RESPONSE HELPERS
+// ============================================================
+function validApiKey(e) {
+  return String(e.parameter.key || "") === API_KEY;
+}
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonpOrJson(data, cb) {
+  // Only accept a plain JavaScript identifier / dotted path as a callback
+  // name. Anything else falls back to plain JSON.
+  if (cb && /^[A-Za-z_$][\w$.]*$/.test(String(cb))) {
+    return ContentService
+      .createTextOutput(
+        cb + "(" + JSON.stringify(data) + ")"
+      )
+      .setMimeType(
+        ContentService.MimeType.JAVASCRIPT
+      );
+  }
+
+  return jsonResponse(data);
+}
+
+function unauthorizedResponse(cb) {
+  return jsonpOrJson({
+    success: false,
+    error: "Unauthorized"
+  }, cb);
+}
+
+function getRangeName(rangeId) {
+  const id = String(rangeId || "").toLowerCase();
+  return RANGE_CONFIG[id]
+    ? RANGE_CONFIG[id].name
+    : id;
+}
+
+// ============================================================
+// MEMBER LIST
+// ============================================================
+function getMembers() {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(MEMBERS_SHEET);
+
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return jsonResponse([]);
+  }
+
+  const values = sheet
+    .getRange(2, 1, lastRow - 1, 1)
+    .getValues();
+
+  const members = values
+    .map(row => String(row[0]).trim())
+    .filter(value => value !== "");
+
+  return jsonResponse(members);
+}
+
+// ============================================================
+// ACTIVE SESSION HELPERS
+// ============================================================
+
+// Returns the most recent `count` data rows of the Checkins sheet
+// (oldest first, header excluded).
+function getRecentCheckinRows(count) {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(SHEET_NAME);
+
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) return [];
+
+  const firstRow = Math.max(
+    2,
+    lastRow - Math.max(1, count || RECENT_ROWS) + 1
+  );
+
+  const columns = Math.min(14, sheet.getMaxColumns());
+
+  return sheet
+    .getRange(firstRow, 1, lastRow - firstRow + 1, columns)
+    .getValues();
+}
+
+function getOpenSessions() {
+  const data = getRecentCheckinRows(RECENT_ROWS);
+  const sessions = {};
+
+  for (let i = 0; i < data.length; i++) {
+    const timestamp = data[i][0];
+    const range = String(data[i][1] || "")
+      .toLowerCase();
+    const member = String(data[i][2] || "")
+      .trim();
+    const positions = String(data[i][3] || "");
+    const action = String(data[i][5] || "");
+    const session = String(data[i][6] || "");
+
+    if (!session) continue;
+
+    if (!sessions[session]) {
+      sessions[session] = {
+        session,
+        timestamp,
+        range,
+        member,
+        positions,
+        open: false
+      };
+    }
+
+    if (action === "IN") {
+      sessions[session].open = true;
+      sessions[session].timestamp = timestamp;
+      sessions[session].range = range;
+      sessions[session].member = member;
+      sessions[session].positions = positions;
+    }
+
+    if (action === "OUT") {
+      sessions[session].open = false;
+    }
+  }
+
+  return Object
+    .values(sessions)
+    .filter(session => session.open);
+}
+
+function getActiveArray(rangeId) {
+  const range = String(rangeId || "")
+    .toLowerCase();
+
+  return getOpenSessions()
+    .filter(session =>
+      !range || session.range === range
+    )
+    .map(session => session.member);
+}
+
+function getActiveGroupedByRange() {
+  const grouped = {};
+
+  Object.keys(RANGE_CONFIG).forEach(id => {
+    grouped[id] = {
+      id,
+      name: RANGE_CONFIG[id].name,
+      active: []
+    };
+  });
+
+  getOpenSessions().forEach(session => {
+    if (!grouped[session.range]) {
+      grouped[session.range] = {
+        id: session.range,
+        name: getRangeName(session.range),
+        active: []
+      };
+    }
+
+    grouped[session.range].active.push({
+      member: session.member,
+      session: session.session,
+      positions: session.positions
+    });
+  });
+
+  return grouped;
+}
+
+function findOpenSessionForMember(memberId) {
+  const id = String(memberId || "").trim();
+
+  return getOpenSessions()
+    .find(session => session.member === id) || null;
+}
+
+function getMemberStatus(memberId) {
+  const id = String(memberId || "").trim();
+  const open = findOpenSessionForMember(id);
+  const forgottenWarning = getNextUnacknowledgedForgottenCheckout(id);
+
+  const result = {
+    active: false,
+    forgottenWarning
+  };
+
+  if (!open) return result;
+
+  result.active = true;
+  result.range = open.range;
+  result.rangeName = getRangeName(open.range);
+  result.member = open.member;
+  return result;
+}
+
+function getNextUnacknowledgedForgottenCheckout(memberId) {
+  const sheet = ensureSheetWithHeaders(FORGOTTEN_SHEET, [
+    "EventID", "MemberID", "Range", "CheckInTime",
+    "AutoCheckoutTime", "Reason", "Acknowledged", "AcknowledgedAt"
+  ]);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const id = String(data[i][1] || "").trim();
+    const acknowledged = normalizeBoolean(data[i][6]);
+    if (id === memberId && !acknowledged) {
+      return {
+        eventId: String(data[i][0] || ""),
+        memberId: id,
+        range: String(data[i][2] || ""),
+        rangeName: getRangeName(data[i][2]),
+        checkInTime: toIsoString(data[i][3]),
+        autoCheckoutTime: toIsoString(data[i][4]),
+        reason: String(data[i][5] || "")
+      };
+    }
+  }
+  return null;
+}
+
+function acknowledgeForgottenCheckout(eventId, memberId) {
+  const event = String(eventId || "").trim();
+  const member = String(memberId || "").trim();
+  if (!event || !member) return { success: false, error: "Missing event or member ID" };
+
+  const sheet = ensureSheetWithHeaders(FORGOTTEN_SHEET, [
+    "EventID", "MemberID", "Range", "CheckInTime",
+    "AutoCheckoutTime", "Reason", "Acknowledged", "AcknowledgedAt"
+  ]);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || "") === event && String(data[i][1] || "").trim() === member) {
+      sheet.getRange(i + 1, 7).setValue(true);
+      sheet.getRange(i + 1, 8).setValue(new Date());
+      return { success: true };
+    }
+  }
+  return { success: false, error: "Forgotten checkout record not found" };
+}
+
+function toIsoString(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+// ============================================================
+// CHECK-IN / CHECKOUT
+// ============================================================
+
+// Offline replays carry the original time in the "queued" parameter.
+// Use it as the row timestamp when it is a valid, non-future time.
+function parseQueuedTime(queued) {
+  if (!queued) return new Date();
+
+  const date = new Date(String(queued));
+
+  if (
+    isNaN(date.getTime()) ||
+    date.getTime() > Date.now() + 60000
+  ) {
+    return new Date();
+  }
+
+  return date;
+}
+
+function handleSubmit(e) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(10000);
+  } catch (lockError) {
+    // "busy" tells the kiosk to retry later instead of discarding the item.
+    return jsonResponse({
+      success: false,
+      busy: true,
+      error: "Server busy"
+    });
+  }
+
+  try {
+    const sheet = SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(SHEET_NAME);
+
+    const range = String(
+      e.parameter.range || ""
+    ).toLowerCase();
+
+    const memberId = String(
+      e.parameter.memberId || ""
+    ).trim();
+
+    const positions =
+      e.parameter.positions || "";
+
+    const supplies =
+      e.parameter.supplies || "";
+
+    const action =
+      e.parameter.type || "";
+
+    const queued =
+      e.parameter.queued || "";
+
+    const clientId =
+      e.parameter.clientId || "";
+
+    const hasGuests =
+      normalizeBoolean(e.parameter.hasGuests);
+
+    const guestCount =
+      Math.max(
+        0,
+        parseInt(e.parameter.guestCount || "0", 10)
+        || 0
+      );
+
+    const guestGroupId =
+      e.parameter.guestGroupId || "";
+
+    const waiverIds =
+      e.parameter.waiverIds || "";
+
+    const waiverUploaded =
+      normalizeBoolean(e.parameter.waiverUploaded);
+
+    if (!memberId || !action) {
+      return jsonResponse({
+        success: false,
+        error: "Missing data"
+      });
+    }
+
+    if (
+      clientId &&
+      clientSubmissionExists(clientId)
+    ) {
+      return jsonResponse({
+        success: true,
+        duplicate: true
+      });
+    }
+
+    if (
+      action === "IN" &&
+      !RANGE_CONFIG[range]
+    ) {
+      return jsonResponse({
+        success: false,
+        error: "Invalid range"
+      });
+    }
+
+    // Original event time (replay time only if the item was not queued).
+    const eventTime = parseQueuedTime(queued);
+
+    // ------------------------------------------------------------
+    // CHECK OUT
+    // ------------------------------------------------------------
+    if (action === "OUT") {
+      const open = findOpenSessionForMember(memberId);
+
+      if (!open) {
+        // Offline checkouts can be replayed long after the member was
+        // already checked out by another successful request/admin action.
+        // Treat that queued replay as a successful no-op so it cannot
+        // permanently block every later item in the tablet queue.
+        if (queued) {
+          return jsonResponse({
+            success: true,
+            noOp: true,
+            reason: "Already checked out"
+          });
+        }
+
+        return jsonResponse({
+          success: false,
+          error: "Not checked in"
+        });
+      }
+
+      appendCheckoutRow(
+        open.range,
+        memberId,
+        open.session,
+        queued,
+        clientId,
+        eventTime
+      );
+
+      return jsonResponse({ success: true });
+    }
+
+    // ------------------------------------------------------------
+    // CHECK IN
+    // ------------------------------------------------------------
+    let autoCheckout = null;
+    let historicalOnly = false;
+
+    if (action === "IN") {
+      const open =
+        findOpenSessionForMember(memberId);
+
+      if (open) {
+        if (open.range === range) {
+          // Same range, already open.
+          // A queued replay of a check-in that already landed is harmless.
+          if (queued) {
+            return jsonResponse({
+              success: true,
+              duplicate: true,
+              reason: "Already checked in"
+            });
+          }
+
+          return jsonResponse({
+            success: false,
+            error: "Already checked in"
+          });
+        }
+
+        if (
+          queued &&
+          new Date(open.timestamp).getTime() >
+            eventTime.getTime()
+        ) {
+          // This replayed check-in is OLDER than the session that is
+          // currently open elsewhere. Record it as a finished visit and
+          // leave the newer open session alone.
+          historicalOnly = true;
+        } else {
+          // Different range: auto-checkout from the old range, as usual.
+          appendCheckoutRow(
+            open.range,
+            memberId,
+            open.session,
+            queued,
+            clientId
+              ? clientId + "_auto_out"
+              : "",
+            new Date()
+          );
+
+          autoCheckout = {
+            range: open.range,
+            rangeName: getRangeName(open.range)
+          };
+        }
+      }
+    }
+
+    const sessionId = Utilities.getUuid();
+
+    sheet.appendRow([
+      eventTime,                  // Timestamp (original time if replayed)
+      range,                      // Range
+      memberId,                   // MemberID
+      positions,                  // Positions
+      supplies,                   // Supplies
+      action,                     // Action
+      sessionId,                  // SessionID
+      queued,                     // Queued
+      clientId,                   // ClientID
+      hasGuests,                  // HasGuests
+      guestCount,                 // GuestCount
+      guestGroupId,               // GuestGroupID
+      waiverIds,                  // WaiverIDs
+      waiverUploaded              // WaiverUploaded
+    ]);
+
+    if (historicalOnly) {
+      appendCheckoutRow(
+        range,
+        memberId,
+        sessionId,
+        queued,
+        clientId
+          ? clientId + "_hist_out"
+          : "",
+        eventTime
+      );
+    }
+
+    return jsonResponse({
+      success: true,
+      sessionId,
+      autoCheckout
+    });
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function appendCheckoutRow(
+  range,
+  memberId,
+  sessionId,
+  queued,
+  clientId,
+  when
+) {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(SHEET_NAME);
+
+  sheet.appendRow([
+    when || new Date(),
+    range,
+    memberId,
+    "",
+    "",
+    "OUT",
+    sessionId,
+    queued || "",
+    clientId || "",
+    false,
+    0,
+    "",
+    "",
+    false
+  ]);
+}
+
+function normalizeBoolean(value) {
+  const text = String(value || "")
+    .toLowerCase();
+
+  return (
+    text === "true" ||
+    text === "1" ||
+    text === "yes"
+  );
+}
+
+function clientSubmissionExists(clientId) {
+  const data = getRecentCheckinRows(RECENT_ROWS);
+  const id = String(clientId);
+
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][8] || "") === id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ============================================================
+// WAIVER LOOKUP
+// ============================================================
+function lookupWaiver(waiverId) {
+  const id = String(waiverId || "")
+    .toUpperCase()
+    .trim();
+
+  if (!id) {
+    return {
+      valid: false
+    };
+  }
+
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(GUEST_WAIVERS_SHEET);
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (
+      String(data[i][1] || "")
+        .toUpperCase()
+        .trim() === id &&
+      String(data[i][11] || "") === "Uploaded"
+    ) {
+      return {
+        valid: true,
+        waiverId: id,
+        version: String(data[i][6] || "")
+      };
+    }
+  }
+
+  return {
+    valid: false
+  };
+}
+
+function getWaiverUploadStatus(groupId) {
+  const id = String(groupId || "").trim();
+
+  if (!id) {
+    return {
+      uploaded: false,
+      error: "Missing group ID"
+    };
+  }
+
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(GUEST_WAIVERS_SHEET);
+
+  const data = sheet.getDataRange().getValues();
+
+  let matches = 0;
+  let uploaded = 0;
+  const waiverIds = [];
+
+  for (let i = 1; i < data.length; i++) {
+    if (
+      String(data[i][2] || "") === id
+    ) {
+      matches++;
+
+      waiverIds.push(
+        String(data[i][1] || "")
+      );
+
+      if (
+        String(data[i][11] || "") ===
+        "Uploaded"
+      ) {
+        uploaded++;
+      }
+    }
+  }
+
+  return {
+    uploaded:
+      matches > 0 &&
+      uploaded === matches,
+
+    records: matches,
+    waiverIds
+  };
+}
+
+// ============================================================
+// ENCRYPTED WAIVER STORAGE
+// ============================================================
+function saveEncryptedWaiverPackage(payload) {
+  validateWaiverPayload(payload);
+
+  const groupId = String(
+    payload.guestGroupId
+  ).trim();
+
+  if (guestGroupAlreadyUploaded(groupId)) {
+    return {
+      success: true,
+      duplicate: true,
+      guestGroupId: groupId
+    };
+  }
+
+  const folder = getOrCreateWaiverFolder();
+
+  const year = String(
+    new Date().getFullYear()
+  );
+
+  const yearFolder =
+    getOrCreateChildFolder(folder, year);
+
+  const safeGroupId =
+    groupId.replace(
+      /[^A-Za-z0-9_-]/g,
+      "_"
+    );
+
+  const filename =
+    safeGroupId +
+    "_" +
+    String(payload.waiverVersion || "unknown")
+      .replace(/[^A-Za-z0-9_-]/g, "_") +
+    ".nfga-waiverpkg.json";
+
+  const storedPackage = {
+    format: "NFGA-WAIVER-PACKAGE-1",
+    createdUtc:
+      new Date().toISOString(),
+
+    guestGroupId:
+      payload.guestGroupId,
+
+    waiverIds:
+      payload.waiverIds,
+
+    sponsorMemberId:
+      payload.sponsorMemberId,
+
+    range:
+      payload.range,
+
+    guestCount:
+      payload.guestCount,
+
+    waiverVersion:
+      payload.waiverVersion,
+
+    encryptedKey:
+      payload.encryptedKey,
+
+    iv:
+      payload.iv,
+
+    hash:
+      payload.hash,
+
+    ciphertext:
+      payload.ciphertext
+  };
+
+  yearFolder.createFile(
+    Utilities.newBlob(
+      JSON.stringify(storedPackage),
+      "application/json",
+      filename
+    )
+  );
+
+  appendGuestWaiverRows(
+    payload,
+    filename
+  );
+
+  markCheckinWaiverUploaded(
+    groupId,
+    payload.waiverIds
+  );
+
+  return {
+    success: true,
+    guestGroupId: groupId,
+    filename
+  };
+}
+
+function validateWaiverPayload(payload) {
+  const required = [
+    "guestGroupId",
+    "waiverIds",
+    "sponsorMemberId",
+    "range",
+    "guestCount",
+    "waiverVersion",
+    "encryptedKey",
+    "iv",
+    "hash",
+    "ciphertext"
+  ];
+
+  required.forEach(field => {
+    if (
+      payload[field] === undefined ||
+      payload[field] === null ||
+      payload[field] === ""
+    ) {
+      throw new Error(
+        "Missing waiver field: " + field
+      );
+    }
+  });
+
+  if (!Array.isArray(payload.waiverIds)) {
+    throw new Error(
+      "waiverIds must be an array"
+    );
+  }
+
+  if (
+    payload.waiverIds.length !==
+    Number(payload.guestCount)
+  ) {
+    throw new Error(
+      "Waiver ID count does not match guest count"
+    );
+  }
+
+  if (!RANGE_CONFIG[
+    String(payload.range).toLowerCase()
+  ]) {
+    throw new Error("Invalid range");
+  }
+}
+
+function guestGroupAlreadyUploaded(groupId) {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(GUEST_WAIVERS_SHEET);
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (
+      String(data[i][2] || "") ===
+      String(groupId)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function appendGuestWaiverRows(
+  payload,
+  filename
+) {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(GUEST_WAIVERS_SHEET);
+
+  payload.waiverIds.forEach(
+    waiverId => {
+      sheet.appendRow([
+        new Date(),
+        waiverId,
+        payload.guestGroupId,
+        payload.sponsorMemberId,
+        String(payload.range).toLowerCase(),
+        Number(payload.guestCount),
+        payload.waiverVersion,
+        filename,
+        payload.encryptedKey,
+        payload.iv,
+        payload.hash,
+        "Uploaded"
+      ]);
+    }
+  );
+}
+
+function markCheckinWaiverUploaded(
+  guestGroupId,
+  waiverIds
+) {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(SHEET_NAME);
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = data.length - 1; i > 0; i--) {
+    if (
+      String(data[i][11] || "") ===
+      String(guestGroupId)
+    ) {
+      sheet
+        .getRange(i + 1, 13)
+        .setValue(waiverIds.join(","));
+
+      sheet
+        .getRange(i + 1, 14)
+        .setValue(true);
+
+      return;
+    }
+  }
+}
+
+function getOrCreateWaiverFolder() {
+  const folders = DriveApp
+    .getFoldersByName(WAIVER_FOLDER_NAME);
+
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+
+  return DriveApp.createFolder(
+    WAIVER_FOLDER_NAME
+  );
+}
+
+function getOrCreateChildFolder(
+  parent,
+  name
+) {
+  const folders =
+    parent.getFoldersByName(name);
+
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+
+  return parent.createFolder(name);
+}
+
+// ============================================================
+// RANGE HOURS / AUTOMATIC CHECKOUTS
+// ============================================================
+function getRangeStatus(rangeId, now) {
+  const range = String(rangeId || "").toLowerCase().trim();
+  if (!RANGE_CONFIG[range]) return { valid: false, open: false, error: "Invalid range" };
+
+  const current = now instanceof Date ? now : new Date();
+  if (EXEMPT_RANGE_IDS.includes(range)) {
+    return { valid: true, open: true, exempt: true, range, rangeName: getRangeName(range) };
+  }
+
+  const localParts = getLocalDateTimeParts(current);
+  if (localParts.hour < NORMAL_OPEN_HOUR) {
+    return { valid: true, open: false, range, rangeName: getRangeName(range), reason: "BEFORE_OPEN" };
+  }
+
+  const sunset = calculateSunsetUtc(localParts.year, localParts.month, localParts.day, RANGE_LATITUDE, RANGE_LONGITUDE);
+  const closeTime = new Date(sunset.getTime() + SUNSET_GRACE_MINUTES * 60000);
+
+  if (current.getTime() >= closeTime.getTime()) {
+    return { valid: true, open: false, range, rangeName: getRangeName(range), reason: "AFTER_CLOSE", sunset: sunset.toISOString(), closesAt: closeTime.toISOString() };
+  }
+
+  return { valid: true, open: true, range, rangeName: getRangeName(range), sunset: sunset.toISOString(), closesAt: closeTime.toISOString() };
+}
+
+function getLocalDateTimeParts(date) {
+  const parts = Utilities.formatDate(date, RANGE_TIME_ZONE, "yyyy,MM,dd,HH,mm,ss").split(",").map(Number);
+  return { year: parts[0], month: parts[1], day: parts[2], hour: parts[3], minute: parts[4], second: parts[5] };
+}
+
+function calculateSunsetUtc(year, month, day, latitude, longitude) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const start = new Date(Date.UTC(year, 0, 0));
+  const dayOfYear = Math.floor((date.getTime() - start.getTime()) / 86400000);
+  const lngHour = longitude / 15;
+  const t = dayOfYear + ((18 - lngHour) / 24);
+  const M = (0.9856 * t) - 3.289;
+  let L = M + (1.916 * Math.sin(toRadians(M))) + (0.020 * Math.sin(toRadians(2 * M))) + 282.634;
+  L = normalizeDegrees(L);
+  let RA = toDegrees(Math.atan(0.91764 * Math.tan(toRadians(L))));
+  RA = normalizeDegrees(RA);
+  RA += (Math.floor(L / 90) * 90) - (Math.floor(RA / 90) * 90);
+  RA /= 15;
+  const sinDec = 0.39782 * Math.sin(toRadians(L));
+  const cosDec = Math.cos(Math.asin(sinDec));
+  const cosH = (Math.cos(toRadians(90.833)) - (sinDec * Math.sin(toRadians(latitude)))) / (cosDec * Math.cos(toRadians(latitude)));
+  if (cosH < -1 || cosH > 1) throw new Error("Sunset could not be calculated for this date.");
+  const H = toDegrees(Math.acos(cosH)) / 15;
+  const T = H + RA - (0.06571 * t) - 6.622;
+  let UT = T - lngHour;
+  while (UT < 0) UT += 24;
+  while (UT >= 24) UT -= 24;
+
+  let ms = Date.UTC(year, month - 1, day) + Math.round(UT * 3600000);
+
+  // FIX: UT above is a time-of-day in 0-24h, but in summer the real sunset
+  // for this longitude falls after 00:00 UTC, i.e. on the NEXT UTC day.
+  // Sunset here is always evening local time (~21:00-00:30 UTC), so a UT
+  // before noon belongs to the following UTC day.
+  if (UT < 12) ms += 86400000;
+
+  return new Date(ms);
+}
+
+function normalizeDegrees(value) { let result = value % 360; if (result < 0) result += 360; return result; }
+function toRadians(degrees) { return degrees * Math.PI / 180; }
+function toDegrees(radians) { return radians * 180 / Math.PI; }
+
+function enforceRangeRules() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { success: false, error: "Could not acquire lock" };
+  try {
+    const sessions = getOpenSessions();
+    const now = new Date();
+    let closed = 0;
+    sessions.forEach(session => {
+      if (shouldAutomaticallyCloseSession(session, now)) {
+        autoCloseSession(session, now, getAutomaticCheckoutReason(session));
+        closed++;
+      }
+    });
+    return { success: true, closed };
+  } finally { lock.releaseLock(); }
+}
+
+function enforceRangeRulesForRange(rangeId) {
+  const range = String(rangeId || "").toLowerCase().trim();
+  if (!RANGE_CONFIG[range]) return { success: false, error: "Invalid range" };
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { success: false, error: "Could not acquire lock" };
+  try {
+    const sessions = getOpenSessions().filter(session => session.range === range);
+    const now = new Date();
+    let closed = 0;
+    sessions.forEach(session => {
+      if (shouldAutomaticallyCloseSession(session, now)) {
+        autoCloseSession(session, now, getAutomaticCheckoutReason(session));
+        closed++;
+      }
+    });
+    return { success: true, closed };
+  } finally { lock.releaseLock(); }
+}
+
+function shouldAutomaticallyCloseSession(session, now) {
+  if (EXEMPT_RANGE_IDS.includes(session.range)) {
+    return (now.getTime() - new Date(session.timestamp).getTime()) >= EXEMPT_MAX_SESSION_HOURS * 3600000;
+  }
+  return !getRangeStatus(session.range, now).open;
+}
+
+function getAutomaticCheckoutReason(session) {
+  return EXEMPT_RANGE_IDS.includes(session.range) ? "SIX_HOUR_LIMIT" : "RANGE_CLOSED";
+}
+
+function autoCloseSession(session, now, reason) {
+  appendCheckoutRow(session.range, session.member, session.session, "", "");
+  const sheet = ensureSheetWithHeaders(FORGOTTEN_SHEET, [
+    "EventID", "MemberID", "Range", "CheckInTime", "AutoCheckoutTime", "Reason", "Acknowledged", "AcknowledgedAt"
+  ]);
+  sheet.appendRow([Utilities.getUuid(), session.member, session.range, new Date(session.timestamp), now, reason, false, ""]);
+}
+
+// ============================================================
+// TABLET HEALTH
+// ============================================================
+function recordTabletHeartbeat(e) {
+  const range = String(e.parameter.range || "").toLowerCase().trim();
+  if (!RANGE_CONFIG[range]) return { success: false, error: "Invalid range" };
+
+  const sheet = ensureSheetWithHeaders(TABLET_HEALTH_SHEET, [
+    "Range", "RangeName", "FirstSeen", "LastSeen", "Online", "CheckinQueue", "WaiverQueue", "KioskVersion", "UserAgent"
+  ]);
+  const now = new Date();
+  const data = sheet.getDataRange().getValues();
+  let targetRow = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || "").toLowerCase() === range) { targetRow = i + 1; break; }
+  }
+
+  const online = normalizeBoolean(e.parameter.online);
+  const checkinQueue = Math.max(0, parseInt(e.parameter.checkinQueue || "0", 10) || 0);
+  const waiverQueue = Math.max(0, parseInt(e.parameter.waiverQueue || "0", 10) || 0);
+  const version = String(e.parameter.version || "");
+  const userAgent = String(e.parameter.userAgent || "");
+
+  const row = [range, getRangeName(range), targetRow ? (data[targetRow - 1][2] || now) : now, now, online, checkinQueue, waiverQueue, version, userAgent];
+  if (!targetRow) sheet.appendRow(row);
+  else sheet.getRange(targetRow, 1, 1, 9).setValues([row]);
+  return { success: true, serverTime: now.toISOString(), kioskVersion: LATEST_KIOSK_VERSION };
+}
+
+function sendMorningHealthAlerts() {
+  const healthSheet = ensureSheetWithHeaders(TABLET_HEALTH_SHEET, [
+    "Range", "RangeName", "FirstSeen", "LastSeen", "Online", "CheckinQueue", "WaiverQueue", "KioskVersion", "UserAgent"
+  ]);
+  const recipientsSheet = ensureSheetWithHeaders(ALERT_RECIPIENTS_SHEET, ["Range", "Email", "Enabled"]);
+  const healthData = healthSheet.getDataRange().getValues();
+  if (healthData.length < 2) return;
+
+  const cutoff = getPreviousLocalTenPm();
+  const issues = [];
+  for (let i = 1; i < healthData.length; i++) {
+    const range = String(healthData[i][0] || "").toLowerCase().trim();
+    if (!range) continue;
+    const lastSeen = new Date(healthData[i][3]);
+    const checkinQueue = Number(healthData[i][5] || 0);
+    const waiverQueue = Number(healthData[i][6] || 0);
+    const issue = { range, rangeName: healthData[i][1] || getRangeName(range), lastSeen, checkinQueue, waiverQueue, reasons: [] };
+    if (isNaN(lastSeen.getTime()) || lastSeen.getTime() < cutoff.getTime()) issue.reasons.push("No heartbeat since 10:00 PM last night");
+    if (checkinQueue > 0) issue.reasons.push(checkinQueue + " pending check-in/check-out upload" + (checkinQueue === 1 ? "" : "s"));
+    if (waiverQueue > 0) issue.reasons.push(waiverQueue + " pending waiver upload" + (waiverQueue === 1 ? "" : "s"));
+    if (issue.reasons.length) issues.push(issue);
+  }
+  if (!issues.length) return;
+
+  const recipients = recipientsSheet.getDataRange().getValues();
+  const byEmail = {};
+  for (let i = 1; i < recipients.length; i++) {
+    const range = String(recipients[i][0] || "").toLowerCase().trim();
+    const email = String(recipients[i][1] || "").trim();
+    const enabled = recipients[i][2] === "" || normalizeBoolean(recipients[i][2]);
+    if (!email || !enabled) continue;
+    const matching = issues.filter(issue => range === "all" || range === issue.range);
+    if (!matching.length) continue;
+    if (!byEmail[email]) byEmail[email] = [];
+    matching.forEach(issue => {
+      if (!byEmail[email].some(existing => existing.range === issue.range)) byEmail[email].push(issue);
+    });
+  }
+
+  Object.keys(byEmail).forEach(email => {
+    MailApp.sendEmail({ to: email, subject: "NFGA Range Tablet Health Alert", body: buildHealthAlertEmail(byEmail[email], cutoff) });
+  });
+}
+
+function buildHealthAlertEmail(issues, cutoff) {
+  const lines = ["The following range tablet issues need attention:", ""];
+  issues.forEach(issue => {
+    lines.push(issue.rangeName);
+    lines.push("Last seen: " + (isNaN(issue.lastSeen.getTime()) ? "Never" : Utilities.formatDate(issue.lastSeen, RANGE_TIME_ZONE, "MMM d, yyyy h:mm a")));
+    issue.reasons.forEach(reason => lines.push("- " + reason));
+    lines.push("");
+  });
+  lines.push("Health cutoff: " + Utilities.formatDate(cutoff, RANGE_TIME_ZONE, "MMM d, yyyy h:mm a"));
+  return lines.join("\n");
+}
+
+function getPreviousLocalTenPm() {
+  const now = new Date();
+  const parts = getLocalDateTimeParts(now);
+  const localTodayUtc = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const yesterday = new Date(localTodayUtc - 86400000);
+  return localWallClockToUtc(yesterday.getUTCFullYear(), yesterday.getUTCMonth() + 1, yesterday.getUTCDate(), 22, 0);
+}
+
+function localWallClockToUtc(year, month, day, hour, minute) {
+  let guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  for (let i = 0; i < 3; i++) {
+    const formatted = Utilities.formatDate(guess, RANGE_TIME_ZONE, "yyyy,MM,dd,HH,mm").split(",").map(Number);
+    const desired = Date.UTC(year, month - 1, day, hour, minute);
+    const actual = Date.UTC(formatted[0], formatted[1] - 1, formatted[2], formatted[3], formatted[4]);
+    guess = new Date(guess.getTime() + (desired - actual));
+  }
+  return guess;
+}
+
+// ============================================================
+// SETUP HELPERS
+// ============================================================
+function ensureSheetWithHeaders(name, headers) {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(name);
+  if (!sheet) sheet = spreadsheet.insertSheet(name);
+  if (sheet.getLastRow() === 0) sheet.appendRow(headers);
+  return sheet;
+}
+
+function setupOperations() {
+  ensureSheetWithHeaders(FORGOTTEN_SHEET, [
+    "EventID", "MemberID", "Range", "CheckInTime", "AutoCheckoutTime", "Reason", "Acknowledged", "AcknowledgedAt"
+  ]);
+  ensureSheetWithHeaders(TABLET_HEALTH_SHEET, [
+    "Range", "RangeName", "FirstSeen", "LastSeen", "Online", "CheckinQueue", "WaiverQueue", "KioskVersion", "UserAgent"
+  ]);
+  ensureSheetWithHeaders(ALERT_RECIPIENTS_SHEET, ["Range", "Email", "Enabled"]);
+
+  const handlers = ["enforceRangeRules", "sendMorningHealthAlerts"];
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    if (handlers.includes(trigger.getHandlerFunction())) ScriptApp.deleteTrigger(trigger);
+  });
+  ScriptApp.newTrigger("enforceRangeRules").timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger("sendMorningHealthAlerts").timeBased().everyDays(1).atHour(7).nearMinute(0).create();
+  return { success: true };
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function getDashboard(days) {
+  const sheet = SpreadsheetApp
+    .getActiveSpreadsheet()
+    .getSheetByName(SHEET_NAME);
+
+  const data = sheet.getDataRange().getValues();
+
+  const cutoff = new Date(
+    new Date().getTime() -
+    days * 86400000
+  );
+
+  const rangeData = {};
+
+  Object.keys(RANGE_CONFIG).forEach(id => {
+    rangeData[id] = {
+      id,
+      name: RANGE_CONFIG[id].name,
+      total: 0,
+      checkoutTotal: 0,
+      active: [],
+      positions: [],
+      rows: RANGE_CONFIG[id].rows,
+      ammo: RANGE_CONFIG[id].ammo
+    };
+  });
+
+  getOpenSessions().forEach(session => {
+    if (!rangeData[session.range]) return;
+
+    rangeData[session.range]
+      .active.push(session.member);
+
+    if (session.positions) {
+      session.positions
+        .split(",")
+        .forEach(position => {
+          if (position) {
+            rangeData[session.range]
+              .positions.push(position);
+          }
+        });
+    }
+  });
+
+  for (let i = 1; i < data.length; i++) {
+    const date = new Date(data[i][0]);
+    const range = String(
+      data[i][1] || ""
+    ).toLowerCase();
+
+    const action = String(
+      data[i][5] || ""
+    );
+
+    if (!rangeData[range]) continue;
+    if (date < cutoff) continue;
+
+    if (action === "IN") {
+      rangeData[range].total++;
+    }
+
+    if (action === "OUT") {
+      rangeData[range].checkoutTotal++;
+    }
+  }
+
+  const ranges = Object
+    .values(rangeData)
+    .filter(range =>
+      range.total > 0 ||
+      range.checkoutTotal > 0 ||
+      range.active.length > 0
+    );
+
+  return {
+    ranges,
+    config: RANGE_CONFIG
+  };
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function adminForceCheckout(memberId) {
+  const open =
+    findOpenSessionForMember(memberId);
+
+  if (!open) {
+    return {
+      success: false,
+      error: "Member is not checked in"
+    };
+  }
+
+  appendCheckoutRow(
+    open.range,
+    memberId,
+    open.session,
+    "",
+    ""
+  );
+
+  return {
+    success: true,
+    range: open.range
+  };
+}
+
+function adminClearRange(rangeId) {
+  const range = String(
+    rangeId || ""
+  ).toLowerCase();
+
+  const active = getOpenSessions()
+    .filter(session =>
+      session.range === range
+    );
+
+  active.forEach(session => {
+    appendCheckoutRow(
+      session.range,
+      session.member,
+      session.session,
+      "",
+      ""
+    );
+  });
+
+  return {
+    success: true,
+    cleared: active.length
+  };
+}
+
+function adminClearAll() {
+  const active = getOpenSessions();
+
+  active.forEach(session => {
+    appendCheckoutRow(
+      session.range,
+      session.member,
+      session.session,
+      "",
+      ""
+    );
+  });
+
+  return {
+    success: true,
+    cleared: active.length
+  };
+}
+
+function adminLogs(limit) {
+  // Newest first, same shape as before (array of row arrays).
+  return getRecentCheckinRows(limit).reverse();
+}
+
+// ============================================================
+// BACKUP
+// ============================================================
+function backupSheet() {
+  const spreadsheet =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const file = DriveApp
+    .getFileById(spreadsheet.getId());
+
+  let folder;
+
+  const folders = DriveApp
+    .getFoldersByName(BACKUP_FOLDER_NAME);
+
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder(
+      BACKUP_FOLDER_NAME
+    );
+  }
+
+  const name =
+    "Backup_" +
+    new Date().toISOString();
+
+  file.makeCopy(name, folder);
+}
+
+function setupNightlyBackupTrigger() {
+  ScriptApp
+    .newTrigger("backupSheet")
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+}
